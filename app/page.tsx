@@ -1,52 +1,46 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { io, type Socket } from "socket.io-client"
-
-let socket: Socket
+import { useState } from "react"
 
 export default function Home() {
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [pin, setPin] = useState("")
-  const [isConnected, setIsConnected] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState("Connecting...")
+  const [isLoading, setIsLoading] = useState(false)
 
-  useEffect(() => {
-    socketInitializer()
-    return () => {
-      if (socket) socket.disconnect()
+  const selectRole = (role: string) => {
+    setSelectedRole(role)
+
+    if (role === "spectator") {
+      sessionStorage.setItem("userRole", "spectator")
+      window.location.href = "/spectator"
+    } else {
+      setShowModal(true)
     }
-  }, [])
+  }
 
-  const socketInitializer = async () => {
-    // Initialize socket connection
-    socket = io({
-      path: "/api/socketio",
-      addTrailingSlash: false,
-    })
+  const authenticate = async () => {
+    if (!pin.trim()) {
+      alert("Please enter a PIN")
+      return
+    }
 
-    socket.on("connect", () => {
-      console.log("Connected to server")
-      setIsConnected(true)
-      setConnectionStatus("Connected")
-    })
+    setIsLoading(true)
 
-    socket.on("disconnect", () => {
-      console.log("Disconnected from server")
-      setIsConnected(false)
-      setConnectionStatus("Disconnected")
-    })
+    try {
+      const response = await fetch("/api/auth", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ role: selectedRole, pin }),
+      })
 
-    socket.on("connect_error", (error) => {
-      console.error("Connection error:", error)
-      setConnectionStatus("Connection Error")
-    })
+      const data = await response.json()
 
-    socket.on("authenticated", (data) => {
-      console.log("Authentication response:", data)
       if (data.success) {
         sessionStorage.setItem("userRole", data.role)
+        sessionStorage.setItem("userPin", pin)
 
         switch (data.role) {
           case "admin":
@@ -56,45 +50,17 @@ export default function Home() {
           case "captain2":
             window.location.href = "/captain"
             break
-          case "spectator":
-            window.location.href = "/spectator"
-            break
         }
       } else {
         alert("Invalid PIN. Please try again.")
         setPin("")
       }
-    })
-  }
-
-  const selectRole = (role: string) => {
-    if (!isConnected) {
-      alert("Please wait for connection to establish")
-      return
+    } catch (error) {
+      console.error("Authentication error:", error)
+      alert("Connection error. Please try again.")
+    } finally {
+      setIsLoading(false)
     }
-
-    setSelectedRole(role)
-
-    if (role === "spectator") {
-      window.location.href = "/spectator"
-    } else {
-      setShowModal(true)
-    }
-  }
-
-  const authenticate = () => {
-    if (!pin.trim()) {
-      alert("Please enter a PIN")
-      return
-    }
-
-    if (!isConnected) {
-      alert("Not connected to server. Please refresh the page.")
-      return
-    }
-
-    console.log("Sending authentication:", { role: selectedRole, pin })
-    socket.emit("authenticate", { role: selectedRole, pin })
   }
 
   const closeModal = () => {
@@ -108,15 +74,6 @@ export default function Home() {
       <div className="header">
         <h1 className="title">🏏 CRICKET AUCTION</h1>
         <p className="subtitle">Select your role to join the auction</p>
-        <p
-          style={{
-            color: isConnected ? "#4ecdc4" : "#ff6b6b",
-            fontSize: "0.9rem",
-            marginTop: "0.5rem",
-          }}
-        >
-          Status: {connectionStatus}
-        </p>
       </div>
 
       <div className="role-selection">
@@ -158,12 +115,13 @@ export default function Home() {
               onChange={(e) => setPin(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && authenticate()}
               autoFocus
+              disabled={isLoading}
             />
             <div className="modal-buttons">
-              <button onClick={authenticate} className="btn-primary" disabled={!isConnected}>
-                {isConnected ? "Enter" : "Connecting..."}
+              <button onClick={authenticate} className="btn-primary" disabled={isLoading}>
+                {isLoading ? "Checking..." : "Enter"}
               </button>
-              <button onClick={closeModal} className="btn-secondary">
+              <button onClick={closeModal} className="btn-secondary" disabled={isLoading}>
                 Cancel
               </button>
             </div>

@@ -1,9 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { io, type Socket } from "socket.io-client"
-
-let socket: Socket
 
 interface Player {
   id: number
@@ -26,153 +23,204 @@ interface GameState {
   timeRemaining: number
   auctionActive: boolean
   auctionEnded: boolean
+  lastUpdate: number
 }
 
 export default function AdminPage() {
-  const [gameState, setGameState] = useState<GameState>({
-    players: [],
-    currentPlayerIndex: 0,
-    currentBid: 0,
-    highestBidder: null,
-    captain1Balance: 1000000,
-    captain2Balance: 1000000,
-    captain1Team: [],
-    captain2Team: [],
-    timerActive: false,
-    timeRemaining: 60,
-    auctionActive: false,
-    auctionEnded: false,
-  })
-
+  const [gameState, setGameState] = useState<GameState | null>(null)
   const [playerName, setPlayerName] = useState("")
   const [playerRole, setPlayerRole] = useState("Batsman")
   const [captain1Balance, setCaptain1Balance] = useState(1000000)
   const [captain2Balance, setCaptain2Balance] = useState(1000000)
-  const [isConnected, setIsConnected] = useState(false)
+  const [adminPin, setAdminPin] = useState("")
 
   useEffect(() => {
     const userRole = sessionStorage.getItem("userRole")
-    if (userRole !== "admin") {
+    const userPin = sessionStorage.getItem("userPin")
+
+    if (userRole !== "admin" || !userPin) {
       window.location.href = "/"
       return
     }
 
-    socketInitializer()
-    return () => {
-      if (socket) socket.disconnect()
-    }
+    setAdminPin(userPin)
+    fetchGameState()
+
+    // Poll for updates every 2 seconds
+    const interval = setInterval(fetchGameState, 2000)
+    return () => clearInterval(interval)
   }, [])
 
-  const socketInitializer = async () => {
-    socket = io({
-      path: "/api/socketio",
-      addTrailingSlash: false,
-    })
-
-    socket.on("connect", () => {
-      console.log("Admin connected to server")
-      setIsConnected(true)
-      // Re-authenticate as admin
-      socket.emit("authenticate", { role: "admin", pin: process.env.NEXT_PUBLIC_ADMIN_PIN || "admin123" })
-    })
-
-    socket.on("disconnect", () => {
-      setIsConnected(false)
-    })
-
-    socket.on("gameState", (state: GameState) => {
-      setGameState(state)
-      setCaptain1Balance(state.captain1Balance)
-      setCaptain2Balance(state.captain2Balance)
-    })
-
-    socket.on("timerUpdate", (timeRemaining: number) => {
-      setGameState((prev) => ({ ...prev, timeRemaining }))
-    })
-
-    socket.on("newBid", (bidData: { amount: number; captain: string }) => {
-      showNotification(
-        `New bid: ₹${bidData.amount.toLocaleString()} by ${bidData.captain === "captain1" ? "Captain 1" : "Captain 2"}`,
-      )
-    })
-
-    socket.on("playerSold", (data: { player: Player; soldTo: string; price: number }) => {
-      const captainName = data.soldTo === "captain1" ? "Captain 1" : "Captain 2"
-      showNotification(`${data.player.name} sold to ${captainName} for ₹${data.price.toLocaleString()}`)
-    })
-
-    socket.on("auctionEnded", () => {
-      showNotification("Auction has ended!")
-    })
+  const fetchGameState = async () => {
+    try {
+      const response = await fetch("/api/game-state")
+      const data = await response.json()
+      setGameState(data)
+      setCaptain1Balance(data.captain1Balance)
+      setCaptain2Balance(data.captain2Balance)
+    } catch (error) {
+      console.error("Error fetching game state:", error)
+    }
   }
 
-  const addPlayer = () => {
+  const addPlayer = async () => {
     if (!playerName.trim()) {
       alert("Please enter player name")
       return
     }
 
-    if (!isConnected) {
-      alert("Not connected to server")
-      return
-    }
+    try {
+      const response = await fetch("/api/admin/add-player", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: playerName, role: playerRole, adminPin }),
+      })
 
-    socket.emit("addPlayer", { name: playerName, role: playerRole })
-    setPlayerName("")
+      if (response.ok) {
+        setPlayerName("")
+        fetchGameState()
+      } else {
+        alert("Error adding player")
+      }
+    } catch (error) {
+      console.error("Error adding player:", error)
+      alert("Error adding player")
+    }
   }
 
-  const setBalances = () => {
+  const setBalances = async () => {
     if (captain1Balance < 0 || captain2Balance < 0) {
       alert("Balances must be positive")
       return
     }
 
-    socket.emit("setBalances", { captain1: captain1Balance, captain2: captain2Balance })
+    try {
+      const response = await fetch("/api/admin/set-balances", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ captain1: captain1Balance, captain2: captain2Balance, adminPin }),
+      })
+
+      if (response.ok) {
+        fetchGameState()
+      } else {
+        alert("Error setting balances")
+      }
+    } catch (error) {
+      console.error("Error setting balances:", error)
+      alert("Error setting balances")
+    }
   }
 
-  const startTimer = () => {
-    if (gameState.players.length === 0) {
+  const startTimer = async () => {
+    if (!gameState || gameState.players.length === 0) {
       alert("Please add players first")
       return
     }
-    socket.emit("startTimer")
+
+    try {
+      const response = await fetch("/api/admin/start-timer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ adminPin }),
+      })
+
+      if (response.ok) {
+        fetchGameState()
+      } else {
+        alert("Error starting timer")
+      }
+    } catch (error) {
+      console.error("Error starting timer:", error)
+      alert("Error starting timer")
+    }
   }
 
-  const stopTimer = () => {
-    socket.emit("stopTimer")
+  const stopTimer = async () => {
+    try {
+      const response = await fetch("/api/admin/stop-timer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ adminPin }),
+      })
+
+      if (response.ok) {
+        fetchGameState()
+      } else {
+        alert("Error stopping timer")
+      }
+    } catch (error) {
+      console.error("Error stopping timer:", error)
+      alert("Error stopping timer")
+    }
   }
 
-  const nextPlayer = () => {
-    socket.emit("nextPlayer")
+  const nextPlayer = async () => {
+    try {
+      const response = await fetch("/api/admin/next-player", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ adminPin }),
+      })
+
+      if (response.ok) {
+        fetchGameState()
+      } else {
+        alert("Error moving to next player")
+      }
+    } catch (error) {
+      console.error("Error moving to next player:", error)
+      alert("Error moving to next player")
+    }
   }
 
-  const endAuction = () => {
+  const endAuction = async () => {
     if (confirm("Are you sure you want to end the auction?")) {
-      socket.emit("endAuction")
+      try {
+        const response = await fetch("/api/admin/end-auction", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ adminPin }),
+        })
+
+        if (response.ok) {
+          fetchGameState()
+        } else {
+          alert("Error ending auction")
+        }
+      } catch (error) {
+        console.error("Error ending auction:", error)
+        alert("Error ending auction")
+      }
     }
   }
 
   const logout = () => {
     sessionStorage.removeItem("userRole")
+    sessionStorage.removeItem("userPin")
     window.location.href = "/"
   }
 
-  const showNotification = (message: string) => {
-    const notification = document.createElement("div")
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: linear-gradient(45deg, #00f5ff, #0099cc);
-      color: white;
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      box-shadow: 0 0 20px rgba(0, 245, 255, 0.5);
-      z-index: 1000;
-    `
-    notification.textContent = message
-    document.body.appendChild(notification)
-    setTimeout(() => notification.remove(), 3000)
+  if (!gameState) {
+    return (
+      <div className="container">
+        <div className="header">
+          <h1 className="title">Loading...</h1>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -180,9 +228,7 @@ export default function AdminPage() {
       <div className="admin-header">
         <h1>🏏 Admin Control Panel</h1>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <span style={{ color: isConnected ? "#4ecdc4" : "#ff6b6b" }}>
-            {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
-          </span>
+          <span style={{ color: "#4ecdc4" }}>🟢 Connected</span>
           <button onClick={logout} className="btn-secondary">
             Logout
           </button>
@@ -206,7 +252,7 @@ export default function AdminPage() {
               <option value="All-Rounder">All-Rounder</option>
               <option value="Wicket-Keeper">Wicket-Keeper</option>
             </select>
-            <button onClick={addPlayer} className="btn-primary" disabled={!isConnected}>
+            <button onClick={addPlayer} className="btn-primary">
               Add Player
             </button>
           </div>
@@ -237,7 +283,7 @@ export default function AdminPage() {
             <input type="number" value={captain1Balance} onChange={(e) => setCaptain1Balance(Number(e.target.value))} />
             <label>Captain 2 Balance:</label>
             <input type="number" value={captain2Balance} onChange={(e) => setCaptain2Balance(Number(e.target.value))} />
-            <button onClick={setBalances} className="btn-primary" disabled={!isConnected}>
+            <button onClick={setBalances} className="btn-primary">
               Update Balances
             </button>
           </div>
@@ -250,21 +296,21 @@ export default function AdminPage() {
             <button
               onClick={startTimer}
               className="btn-success"
-              disabled={gameState.timerActive || gameState.auctionEnded || !isConnected}
+              disabled={gameState.timerActive || gameState.auctionEnded}
             >
               Start Timer
             </button>
             <button
               onClick={stopTimer}
               className="btn-warning"
-              disabled={!gameState.timerActive || gameState.auctionEnded || !isConnected}
+              disabled={!gameState.timerActive || gameState.auctionEnded}
             >
               Stop Timer
             </button>
-            <button onClick={nextPlayer} className="btn-primary" disabled={gameState.auctionEnded || !isConnected}>
+            <button onClick={nextPlayer} className="btn-primary" disabled={gameState.auctionEnded}>
               Next Player
             </button>
-            <button onClick={endAuction} className="btn-danger" disabled={gameState.auctionEnded || !isConnected}>
+            <button onClick={endAuction} className="btn-danger" disabled={gameState.auctionEnded}>
               End Auction
             </button>
           </div>

@@ -1,9 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { io, type Socket } from "socket.io-client"
-
-let socket: Socket
 
 interface Player {
   id: number
@@ -26,78 +23,38 @@ interface GameState {
   timeRemaining: number
   auctionActive: boolean
   auctionEnded: boolean
+  lastUpdate: number
 }
 
 export default function SpectatorPage() {
-  const [gameState, setGameState] = useState<GameState>({
-    players: [],
-    currentPlayerIndex: 0,
-    currentBid: 0,
-    highestBidder: null,
-    captain1Balance: 1000000,
-    captain2Balance: 1000000,
-    captain1Team: [],
-    captain2Team: [],
-    timerActive: false,
-    timeRemaining: 60,
-    auctionActive: false,
-    auctionEnded: false,
-  })
-
-  const [isConnected, setIsConnected] = useState(false)
+  const [gameState, setGameState] = useState<GameState | null>(null)
 
   useEffect(() => {
-    socketInitializer()
-    return () => {
-      if (socket) socket.disconnect()
-    }
+    fetchGameState()
+
+    // Poll for updates every 1 second
+    const interval = setInterval(fetchGameState, 1000)
+    return () => clearInterval(interval)
   }, [])
 
-  const socketInitializer = async () => {
-    socket = io({
-      path: "/api/socketio",
-      addTrailingSlash: false,
-    })
+  const fetchGameState = async () => {
+    try {
+      const response = await fetch("/api/game-state")
+      const data = await response.json()
+      setGameState(data)
+    } catch (error) {
+      console.error("Error fetching game state:", error)
+    }
+  }
 
-    socket.on("connect", () => {
-      console.log("Spectator connected to server")
-      setIsConnected(true)
-      socket.emit("authenticate", { role: "spectator", pin: "" })
-    })
-
-    socket.on("disconnect", () => {
-      setIsConnected(false)
-    })
-
-    socket.on("gameState", (state: GameState) => {
-      setGameState(state)
-    })
-
-    socket.on("timerUpdate", (timeRemaining: number) => {
-      setGameState((prev) => ({ ...prev, timeRemaining }))
-    })
-
-    socket.on("newBid", (bidData: { amount: number; captain: string }) => {
-      // Visual feedback for new bids
-      const bidElement = document.getElementById("currentBid")
-      if (bidElement) {
-        bidElement.style.animation = "pulse 0.5s ease-in-out"
-        setTimeout(() => {
-          bidElement.style.animation = ""
-        }, 500)
-      }
-    })
-
-    socket.on("nextPlayer", (player: Player) => {
-      // Card transition animation
-      const playerCard = document.getElementById("playerCard")
-      if (playerCard) {
-        playerCard.style.animation = "slideIn 0.5s ease-out"
-        setTimeout(() => {
-          playerCard.style.animation = ""
-        }, 500)
-      }
-    })
+  if (!gameState) {
+    return (
+      <div className="container">
+        <div className="header">
+          <h1 className="title">Loading...</h1>
+        </div>
+      </div>
+    )
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex]
@@ -108,16 +65,14 @@ export default function SpectatorPage() {
         <h1>🏏 LIVE CRICKET AUCTION</h1>
         <div className="live-indicator">
           <span className="live-dot"></span>
-          {isConnected ? "LIVE" : "OFFLINE"}
+          LIVE
         </div>
       </div>
 
       {!gameState.auctionActive || gameState.players.length === 0 ? (
         <div className="auction-status">
           <p>Waiting for auction to start...</p>
-          <p style={{ color: isConnected ? "#4ecdc4" : "#ff6b6b", fontSize: "0.9rem" }}>
-            {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
-          </p>
+          <p style={{ color: "#4ecdc4", fontSize: "0.9rem" }}>🟢 Connected</p>
         </div>
       ) : gameState.auctionEnded ? (
         <div className="teams-display">
@@ -152,7 +107,7 @@ export default function SpectatorPage() {
       ) : (
         <div className="main-display">
           <div className="player-showcase">
-            <div className="player-card-large" id="playerCard">
+            <div className="player-card-large">
               <div className="player-image">🏏</div>
               <div className="player-name">{currentPlayer?.name}</div>
               <div className="player-role">{currentPlayer?.role}</div>
@@ -162,9 +117,7 @@ export default function SpectatorPage() {
           <div className="bid-info">
             <div className="current-bid-display">
               <h2>Current Highest Bid</h2>
-              <div className="bid-amount-large" id="currentBid">
-                ₹{gameState.currentBid.toLocaleString()}
-              </div>
+              <div className="bid-amount-large">₹{gameState.currentBid.toLocaleString()}</div>
               <div className="bidder-info">
                 {gameState.highestBidder
                   ? `Leading: ${gameState.highestBidder === "captain1" ? "Team Lightning ⚡" : "Team Thunder 🔥"}`

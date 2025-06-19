@@ -1,9 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { io, type Socket } from "socket.io-client"
-
-let socket: Socket
 
 interface Player {
   id: number
@@ -26,95 +23,44 @@ interface GameState {
   timeRemaining: number
   auctionActive: boolean
   auctionEnded: boolean
+  lastUpdate: number
 }
 
 export default function CaptainPage() {
-  const [gameState, setGameState] = useState<GameState>({
-    players: [],
-    currentPlayerIndex: 0,
-    currentBid: 0,
-    highestBidder: null,
-    captain1Balance: 1000000,
-    captain2Balance: 1000000,
-    captain1Team: [],
-    captain2Team: [],
-    timerActive: false,
-    timeRemaining: 60,
-    auctionActive: false,
-    auctionEnded: false,
-  })
-
+  const [gameState, setGameState] = useState<GameState | null>(null)
   const [bidAmount, setBidAmount] = useState("")
   const [userRole, setUserRole] = useState<string>("")
-  const [isConnected, setIsConnected] = useState(false)
+  const [captainPin, setCaptainPin] = useState("")
 
   useEffect(() => {
     const role = sessionStorage.getItem("userRole")
-    if (!role || (role !== "captain1" && role !== "captain2")) {
+    const pin = sessionStorage.getItem("userPin")
+
+    if (!role || (role !== "captain1" && role !== "captain2") || !pin) {
       window.location.href = "/"
       return
     }
 
     setUserRole(role)
-    socketInitializer(role)
-    return () => {
-      if (socket) socket.disconnect()
-    }
+    setCaptainPin(pin)
+    fetchGameState()
+
+    // Poll for updates every 1 second
+    const interval = setInterval(fetchGameState, 1000)
+    return () => clearInterval(interval)
   }, [])
 
-  const socketInitializer = async (role: string) => {
-    socket = io({
-      path: "/api/socketio",
-      addTrailingSlash: false,
-    })
-
-    socket.on("connect", () => {
-      console.log("Captain connected to server")
-      setIsConnected(true)
-      // Re-authenticate as captain
-      const pins = {
-        captain1: process.env.NEXT_PUBLIC_CAPTAIN1_PIN || "team1",
-        captain2: process.env.NEXT_PUBLIC_CAPTAIN2_PIN || "team2",
-      }
-      socket.emit("authenticate", { role, pin: pins[role as keyof typeof pins] })
-    })
-
-    socket.on("disconnect", () => {
-      setIsConnected(false)
-    })
-
-    socket.on("gameState", (state: GameState) => {
-      setGameState(state)
-    })
-
-    socket.on("timerUpdate", (timeRemaining: number) => {
-      setGameState((prev) => ({ ...prev, timeRemaining }))
-    })
-
-    socket.on("newBid", (bidData: { amount: number; captain: string }) => {
-      const bidderName = bidData.captain === "captain1" ? "Captain 1 ⚡" : "Captain 2 🔥"
-      showNotification(`New bid: ₹${bidData.amount.toLocaleString()} by ${bidderName}`)
-
-      if (bidData.captain === userRole) {
-        showSuccessMessage("Bid placed successfully!")
-      }
-    })
-
-    socket.on("playerSold", (data: { player: Player; soldTo: string; price: number }) => {
-      const captainName = data.soldTo === "captain1" ? "Captain 1 ⚡" : "Captain 2 🔥"
-      showNotification(`${data.player.name} sold to ${captainName} for ₹${data.price.toLocaleString()}`)
-    })
-
-    socket.on("nextPlayer", (player: Player) => {
-      showNotification(`Next player: ${player.name} (${player.role})`)
-    })
-
-    socket.on("auctionEnded", () => {
-      showNotification("Auction has ended!")
-    })
+  const fetchGameState = async () => {
+    try {
+      const response = await fetch("/api/game-state")
+      const data = await response.json()
+      setGameState(data)
+    } catch (error) {
+      console.error("Error fetching game state:", error)
+    }
   }
 
-  const placeBid = () => {
+  const placeBid = async () => {
     const amount = Number.parseInt(bidAmount)
 
     if (!amount || amount <= 0) {
@@ -122,10 +68,7 @@ export default function CaptainPage() {
       return
     }
 
-    if (!isConnected) {
-      alert("Not connected to server")
-      return
-    }
+    if (!gameState) return
 
     const currentBalance = userRole === "captain1" ? gameState.captain1Balance : gameState.captain2Balance
 
@@ -144,36 +87,40 @@ export default function CaptainPage() {
       return
     }
 
-    socket.emit("placeBid", { amount, captain: userRole })
-    setBidAmount("")
+    try {
+      const response = await fetch("/api/captain/place-bid", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ amount, captain: userRole, captainPin }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setBidAmount("")
+        fetchGameState()
+        showSuccessMessage("Bid placed successfully!")
+      } else {
+        alert("Error placing bid")
+      }
+    } catch (error) {
+      console.error("Error placing bid:", error)
+      alert("Error placing bid")
+    }
   }
 
   const quickBid = (amount: number) => {
+    if (!gameState) return
     const newBid = gameState.currentBid + amount
     setBidAmount(newBid.toString())
   }
 
   const logout = () => {
     sessionStorage.removeItem("userRole")
+    sessionStorage.removeItem("userPin")
     window.location.href = "/"
-  }
-
-  const showNotification = (message: string) => {
-    const notification = document.createElement("div")
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: linear-gradient(45deg, #00f5ff, #0099cc);
-      color: white;
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      box-shadow: 0 0 20px rgba(0, 245, 255, 0.5);
-      z-index: 1000;
-    `
-    notification.textContent = message
-    document.body.appendChild(notification)
-    setTimeout(() => notification.remove(), 3000)
   }
 
   const showSuccessMessage = (message: string) => {
@@ -194,6 +141,16 @@ export default function CaptainPage() {
     setTimeout(() => notification.remove(), 3000)
   }
 
+  if (!gameState) {
+    return (
+      <div className="container">
+        <div className="header">
+          <h1 className="title">Loading...</h1>
+        </div>
+      </div>
+    )
+  }
+
   const currentPlayer = gameState.players[gameState.currentPlayerIndex]
   const currentBalance = userRole === "captain1" ? gameState.captain1Balance : gameState.captain2Balance
   const myTeam = userRole === "captain1" ? gameState.captain1Team : gameState.captain2Team
@@ -206,7 +163,7 @@ export default function CaptainPage() {
           <span>Balance: ₹{currentBalance.toLocaleString()}</span>
         </div>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <span style={{ color: isConnected ? "#4ecdc4" : "#ff6b6b" }}>{isConnected ? "🟢" : "🔴"}</span>
+          <span style={{ color: "#4ecdc4" }}>🟢 Connected</span>
           <button onClick={logout} className="btn-secondary">
             Logout
           </button>
@@ -278,7 +235,7 @@ export default function CaptainPage() {
                 onChange={(e) => setBidAmount(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && placeBid()}
               />
-              <button onClick={placeBid} className="btn-bid" disabled={!isConnected}>
+              <button onClick={placeBid} className="btn-bid">
                 Place Bid
               </button>
             </div>
