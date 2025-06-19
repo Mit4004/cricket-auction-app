@@ -25,6 +25,8 @@ interface GameState {
   auctionActive: boolean
   auctionEnded: boolean
   auctionStarted: boolean
+  preAuctionTimer: number
+  preAuctionActive: boolean
   lastUpdate: number
 }
 
@@ -49,6 +51,12 @@ export default function SpectatorPage() {
     }
   }
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
   if (!gameState) {
     return (
       <div className="container">
@@ -71,7 +79,16 @@ export default function SpectatorPage() {
         </div>
       </div>
 
-      {!gameState.auctionActive || gameState.players.length === 0 ? (
+      {gameState.preAuctionActive ? (
+        <div className="pre-auction-timer fade-in">
+          <h2>🚀 Auction Starting Soon!</h2>
+          <div className="pre-auction-countdown">{formatTime(gameState.preAuctionTimer)}</div>
+          <p>Get ready! The auction will begin automatically when the timer reaches zero.</p>
+          <div style={{ marginTop: "2rem", color: "#b0b0b0" }}>
+            <p>Players ready: {gameState.players.length}</p>
+          </div>
+        </div>
+      ) : !gameState.auctionActive || gameState.players.length === 0 ? (
         <div className="auction-status">
           <p>Waiting for auction to start...</p>
           <p style={{ color: "#4ecdc4", fontSize: "0.9rem" }}>🟢 Connected</p>
@@ -142,14 +159,7 @@ export default function SpectatorPage() {
       ) : (
         <div className="main-display">
           <div className="player-showcase">
-            <div
-              className="player-card-large pulse"
-              style={{
-                border: "3px solid #00f5ff",
-                background: "linear-gradient(135deg, #1a1a2e, #16213e)",
-                boxShadow: "0 0 40px rgba(0, 245, 255, 0.4)",
-              }}
-            >
+            <div className="player-card-large current-player-card">
               <div className="player-image">🏏</div>
               <div className="player-name">{currentPlayer?.name}</div>
               <div className="player-role">{currentPlayer?.role}</div>

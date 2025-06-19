@@ -25,6 +25,8 @@ interface GameState {
   auctionActive: boolean
   auctionEnded: boolean
   auctionStarted: boolean
+  preAuctionTimer: number
+  preAuctionActive: boolean
   lastUpdate: number
 }
 
@@ -34,6 +36,7 @@ export default function AdminPage() {
   const [playerRole, setPlayerRole] = useState("Batsman")
   const [captain1Balance, setCaptain1Balance] = useState(1000000)
   const [captain2Balance, setCaptain2Balance] = useState(1000000)
+  const [preAuctionMinutes, setPreAuctionMinutes] = useState(5)
   const [adminPin, setAdminPin] = useState("")
 
   useEffect(() => {
@@ -146,6 +149,36 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error setting balances:", error)
       alert("Error setting balances")
+    }
+  }
+
+  const startPreAuctionTimer = async () => {
+    if (!gameState || gameState.players.length === 0) {
+      alert("Please add players first")
+      return
+    }
+
+    const seconds = preAuctionMinutes * 60
+
+    try {
+      const response = await fetch("/api/admin/start-pre-auction-timer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ seconds, adminPin }),
+      })
+
+      if (response.ok) {
+        fetchGameState()
+        showSuccessMessage(`Pre-auction timer started for ${preAuctionMinutes} minutes!`)
+      } else {
+        const error = await response.json()
+        alert(`Error starting pre-auction timer: ${error.error}`)
+      }
+    } catch (error) {
+      console.error("Error starting pre-auction timer:", error)
+      alert("Error starting pre-auction timer")
     }
   }
 
@@ -365,6 +398,12 @@ export default function AdminPage() {
     setTimeout(() => notification.remove(), 3000)
   }
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
   if (!gameState) {
     return (
       <div className="container">
@@ -387,6 +426,15 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Pre-Auction Timer Display */}
+      {gameState.preAuctionActive && (
+        <div className="pre-auction-timer fade-in">
+          <h2>🚀 Auction Starting Soon!</h2>
+          <div className="pre-auction-countdown">{formatTime(gameState.preAuctionTimer)}</div>
+          <p>Get ready! The auction will begin automatically when the timer reaches zero.</p>
+        </div>
+      )}
+
       <div className="admin-grid">
         {/* Player Management */}
         <div className="admin-section">
@@ -397,19 +445,23 @@ export default function AdminPage() {
               placeholder="Player Name"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
-              disabled={gameState.auctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive}
             />
             <select
               value={playerRole}
               onChange={(e) => setPlayerRole(e.target.value)}
-              disabled={gameState.auctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive}
             >
               <option value="Batsman">Batsman</option>
               <option value="Bowler">Bowler</option>
               <option value="All-Rounder">All-Rounder</option>
               <option value="Wicket-Keeper">Wicket-Keeper</option>
             </select>
-            <button onClick={addPlayer} className="btn-primary" disabled={gameState.auctionActive}>
+            <button
+              onClick={addPlayer}
+              className="btn-primary"
+              disabled={gameState.auctionActive || gameState.preAuctionActive}
+            >
               Add Player
             </button>
           </div>
@@ -427,8 +479,6 @@ export default function AdminPage() {
                     index === gameState.currentPlayerIndex && gameState.auctionActive
                       ? "rgba(0, 245, 255, 0.1)"
                       : "rgba(255, 255, 255, 0.1)",
-                  animation:
-                    index === gameState.currentPlayerIndex && gameState.auctionActive ? "pulse 2s infinite" : "none",
                 }}
               >
                 <div>
@@ -445,7 +495,7 @@ export default function AdminPage() {
                         : "Available"}
                   </small>
                 </div>
-                {!gameState.auctionActive && (
+                {!gameState.auctionActive && !gameState.preAuctionActive && (
                   <button
                     onClick={() => removePlayer(player.id)}
                     className="btn-danger"
@@ -468,19 +518,49 @@ export default function AdminPage() {
               type="number"
               value={captain1Balance}
               onChange={(e) => setCaptain1Balance(Number(e.target.value))}
-              disabled={gameState.auctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive}
             />
             <label>Captain 2 Balance:</label>
             <input
               type="number"
               value={captain2Balance}
               onChange={(e) => setCaptain2Balance(Number(e.target.value))}
-              disabled={gameState.auctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive}
             />
-            <button onClick={setBalances} className="btn-primary" disabled={gameState.auctionActive}>
+            <button
+              onClick={setBalances}
+              className="btn-primary"
+              disabled={gameState.auctionActive || gameState.preAuctionActive}
+            >
               Update Balances
             </button>
           </div>
+        </div>
+
+        {/* Pre-Auction Timer Controls */}
+        <div className="admin-section">
+          <h3>Pre-Auction Timer</h3>
+          <div className="form-group">
+            <label>Timer Duration (minutes):</label>
+            <input
+              type="number"
+              min="1"
+              max="60"
+              value={preAuctionMinutes}
+              onChange={(e) => setPreAuctionMinutes(Number(e.target.value))}
+              disabled={gameState.preAuctionActive || gameState.auctionActive}
+            />
+            <button
+              onClick={startPreAuctionTimer}
+              className="btn-warning"
+              disabled={gameState.preAuctionActive || gameState.auctionActive || gameState.players.length === 0}
+            >
+              Start Pre-Auction Timer
+            </button>
+          </div>
+          <p style={{ color: "#b0b0b0", fontSize: "0.9rem", marginTop: "1rem" }}>
+            This will notify everyone that the auction will start in the specified time.
+          </p>
         </div>
 
         {/* Auction Controls */}
@@ -492,7 +572,7 @@ export default function AdminPage() {
               className="btn-success"
               disabled={gameState.auctionStarted && !gameState.auctionEnded}
             >
-              Start Auction
+              Start Auction Now
             </button>
             <button
               onClick={startTimer}
@@ -539,7 +619,13 @@ export default function AdminPage() {
         <div className="admin-section">
           <h3>Current Status</h3>
           <div className="status-display">
-            {gameState.auctionEnded ? (
+            {gameState.preAuctionActive ? (
+              <>
+                <h4>⏰ Pre-Auction Timer Active</h4>
+                <p>Time remaining: {formatTime(gameState.preAuctionTimer)}</p>
+                <p>Players ready: {gameState.players.length}</p>
+              </>
+            ) : gameState.auctionEnded ? (
               <>
                 <h4>🏁 Auction Ended</h4>
                 <p>Captain 1 Team: {gameState.captain1Team.length} players</p>
@@ -580,7 +666,7 @@ export default function AdminPage() {
       {gameState.auctionActive && gameState.players.length > 0 && !gameState.auctionEnded && (
         <div className="current-player-section fade-in">
           <h3>🎯 Current Player on Auction</h3>
-          <div className="player-card-admin pulse">
+          <div className="player-card-admin current-player-card">
             <div className="player-image">🏏</div>
             <div className="player-name">{gameState.players[gameState.currentPlayerIndex]?.name}</div>
             <div className="player-role">{gameState.players[gameState.currentPlayerIndex]?.role}</div>

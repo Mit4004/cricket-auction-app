@@ -254,7 +254,7 @@ body {
   font-size: 0.9rem;
 }
 
-/* Player Card Styles */
+/* FIFA-Style Player Card Animations */
 .player-card,
 .player-card-large,
 .player-card-admin {
@@ -264,13 +264,69 @@ body {
   padding: 2rem;
   text-align: center;
   box-shadow: 0 0 30px rgba(0, 245, 255, 0.2);
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.player-card::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(0, 245, 255, 0.1), transparent);
+  transform: rotate(45deg);
+  transition: all 0.6s ease;
+  opacity: 0;
+}
+
+.player-card:hover::before {
+  opacity: 1;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  50% {
+    transform: translateX(0%) translateY(0%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+.player-card:hover {
+  transform: translateY(-10px) rotateX(5deg) rotateY(5deg);
+  box-shadow: 0 20px 40px rgba(0, 245, 255, 0.4), 0 0 60px rgba(0, 245, 255, 0.2), inset 0 0 20px rgba(0, 245, 255, 0.1);
+  border-color: #00f5ff;
 }
 
 .player-card-large {
   padding: 3rem;
   max-width: 400px;
   margin: 0 auto;
+  animation: cardEntrance 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes cardEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) rotateY(180deg);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1) rotateY(90deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+  }
 }
 
 .player-image {
@@ -284,6 +340,41 @@ body {
   justify-content: center;
   font-size: 3rem;
   border: 3px solid #ffffff;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.player-image::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: rotate(45deg);
+  transition: all 0.6s ease;
+  opacity: 0;
+}
+
+.player-card:hover .player-image::before {
+  opacity: 1;
+  animation: imageShimmer 2s ease-in-out infinite;
+}
+
+@keyframes imageShimmer {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+.player-card:hover .player-image {
+  transform: scale(1.1) rotateZ(5deg);
+  box-shadow: 0 0 30px rgba(0, 245, 255, 0.6);
 }
 
 .player-name {
@@ -291,6 +382,14 @@ body {
   font-weight: bold;
   margin-bottom: 0.5rem;
   color: #ffffff;
+  transition: all 0.3s ease;
+  text-shadow: 0 0 10px rgba(0, 245, 255, 0.3);
+}
+
+.player-card:hover .player-name {
+  color: #00f5ff;
+  text-shadow: 0 0 20px rgba(0, 245, 255, 0.8);
+  transform: scale(1.05);
 }
 
 .player-role {
@@ -298,6 +397,57 @@ body {
   color: #00f5ff;
   text-transform: uppercase;
   letter-spacing: 2px;
+  transition: all 0.3s ease;
+}
+
+.player-card:hover .player-role {
+  color: #4ecdc4;
+  letter-spacing: 3px;
+  transform: scale(1.1);
+}
+
+/* Current Player Special Animation */
+.current-player-card {
+  animation: currentPlayerPulse 2s ease-in-out infinite;
+  border: 3px solid #00f5ff !important;
+  box-shadow: 0 0 40px rgba(0, 245, 255, 0.6), 0 0 80px rgba(0, 245, 255, 0.3), inset 0 0 30px rgba(0, 245, 255, 0.1) !important;
+}
+
+@keyframes currentPlayerPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 40px rgba(0, 245, 255, 0.6), 0 0 80px rgba(0, 245, 255, 0.3), inset 0 0 30px rgba(0, 245, 255, 0.1);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 60px rgba(0, 245, 255, 0.8), 0 0 120px rgba(0, 245, 255, 0.4), inset 0 0 40px rgba(0, 245, 255, 0.2);
+  }
+}
+
+/* Sold Player Animation */
+.sold-player-card {
+  animation: soldCardAnimation 1s ease-out;
+  border-color: #4ecdc4 !important;
+  background: linear-gradient(135deg, #1a2e1a, #1e3e16) !important;
+}
+
+@keyframes soldCardAnimation {
+  0% {
+    transform: scale(1) rotateY(0deg);
+  }
+  25% {
+    transform: scale(1.1) rotateY(90deg);
+  }
+  50% {
+    transform: scale(1.2) rotateY(180deg);
+  }
+  75% {
+    transform: scale(1.1) rotateY(270deg);
+  }
+  100% {
+    transform: scale(1) rotateY(360deg);
+  }
 }
 
 /* Admin Styles */
@@ -397,6 +547,8 @@ body {
 
 .player-item.current-player {
   animation: currentPlayerGlow 2s infinite;
+  border: 2px solid #00f5ff;
+  background: rgba(0, 245, 255, 0.1);
 }
 
 @keyframes currentPlayerGlow {
@@ -435,6 +587,44 @@ body {
   color: #00f5ff;
   margin-bottom: 1rem;
   font-size: 1.5rem;
+}
+
+/* Pre-Auction Timer Styles */
+.pre-auction-timer {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  border: 3px solid #ff4444;
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  animation: preAuctionPulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 40px rgba(255, 107, 107, 0.4);
+}
+
+@keyframes preAuctionPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 40px rgba(255, 107, 107, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 60px rgba(255, 107, 107, 0.6);
+  }
+}
+
+.pre-auction-timer h2 {
+  color: #ffffff;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.pre-auction-countdown {
+  font-size: 4rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+  margin: 1rem 0;
 }
 
 /* Captain Styles */
@@ -819,6 +1009,10 @@ body {
 
   .teams-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pre-auction-countdown {
+    font-size: 3rem;
   }
 }
 
