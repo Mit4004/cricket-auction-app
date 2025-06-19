@@ -44,6 +44,8 @@ export default function SpectatorPage() {
     auctionEnded: false,
   })
 
+  const [isConnected, setIsConnected] = useState(false)
+
   useEffect(() => {
     socketInitializer()
     return () => {
@@ -52,12 +54,20 @@ export default function SpectatorPage() {
   }, [])
 
   const socketInitializer = async () => {
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "", {
-      path: "/api/socket",
+    socket = io({
+      path: "/api/socketio",
       addTrailingSlash: false,
     })
 
-    socket.emit("authenticate", { role: "spectator", pin: "" })
+    socket.on("connect", () => {
+      console.log("Spectator connected to server")
+      setIsConnected(true)
+      socket.emit("authenticate", { role: "spectator", pin: "" })
+    })
+
+    socket.on("disconnect", () => {
+      setIsConnected(false)
+    })
 
     socket.on("gameState", (state: GameState) => {
       setGameState(state)
@@ -98,13 +108,16 @@ export default function SpectatorPage() {
         <h1>🏏 LIVE CRICKET AUCTION</h1>
         <div className="live-indicator">
           <span className="live-dot"></span>
-          LIVE
+          {isConnected ? "LIVE" : "OFFLINE"}
         </div>
       </div>
 
       {!gameState.auctionActive || gameState.players.length === 0 ? (
         <div className="auction-status">
           <p>Waiting for auction to start...</p>
+          <p style={{ color: isConnected ? "#4ecdc4" : "#ff6b6b", fontSize: "0.9rem" }}>
+            {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
+          </p>
         </div>
       ) : gameState.auctionEnded ? (
         <div className="teams-display">

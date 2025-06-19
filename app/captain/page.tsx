@@ -46,6 +46,7 @@ export default function CaptainPage() {
 
   const [bidAmount, setBidAmount] = useState("")
   const [userRole, setUserRole] = useState<string>("")
+  const [isConnected, setIsConnected] = useState(false)
 
   useEffect(() => {
     const role = sessionStorage.getItem("userRole")
@@ -62,13 +63,25 @@ export default function CaptainPage() {
   }, [])
 
   const socketInitializer = async (role: string) => {
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "", {
-      path: "/api/socket",
+    socket = io({
+      path: "/api/socketio",
       addTrailingSlash: false,
     })
 
-    const pins = { captain1: "11111", captain2: "22222" }
-    socket.emit("authenticate", { role, pin: pins[role as keyof typeof pins] })
+    socket.on("connect", () => {
+      console.log("Captain connected to server")
+      setIsConnected(true)
+      // Re-authenticate as captain
+      const pins = {
+        captain1: process.env.NEXT_PUBLIC_CAPTAIN1_PIN || "team1",
+        captain2: process.env.NEXT_PUBLIC_CAPTAIN2_PIN || "team2",
+      }
+      socket.emit("authenticate", { role, pin: pins[role as keyof typeof pins] })
+    })
+
+    socket.on("disconnect", () => {
+      setIsConnected(false)
+    })
 
     socket.on("gameState", (state: GameState) => {
       setGameState(state)
@@ -106,6 +119,11 @@ export default function CaptainPage() {
 
     if (!amount || amount <= 0) {
       alert("Please enter a valid bid amount")
+      return
+    }
+
+    if (!isConnected) {
+      alert("Not connected to server")
       return
     }
 
@@ -187,9 +205,12 @@ export default function CaptainPage() {
         <div className="balance-display">
           <span>Balance: ₹{currentBalance.toLocaleString()}</span>
         </div>
-        <button onClick={logout} className="btn-secondary">
-          Logout
-        </button>
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <span style={{ color: isConnected ? "#4ecdc4" : "#ff6b6b" }}>{isConnected ? "🟢" : "🔴"}</span>
+          <button onClick={logout} className="btn-secondary">
+            Logout
+          </button>
+        </div>
       </div>
 
       {!gameState.auctionActive || gameState.players.length === 0 ? (
@@ -257,7 +278,7 @@ export default function CaptainPage() {
                 onChange={(e) => setBidAmount(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && placeBid()}
               />
-              <button onClick={placeBid} className="btn-bid">
+              <button onClick={placeBid} className="btn-bid" disabled={!isConnected}>
                 Place Bid
               </button>
             </div>

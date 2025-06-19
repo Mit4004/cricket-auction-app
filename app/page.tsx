@@ -9,6 +9,8 @@ export default function Home() {
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [pin, setPin] = useState("")
+  const [isConnected, setIsConnected] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState("Connecting...")
 
   useEffect(() => {
     socketInitializer()
@@ -18,12 +20,31 @@ export default function Home() {
   }, [])
 
   const socketInitializer = async () => {
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "", {
-      path: "/api/socket",
+    // Initialize socket connection
+    socket = io({
+      path: "/api/socketio",
       addTrailingSlash: false,
     })
 
+    socket.on("connect", () => {
+      console.log("Connected to server")
+      setIsConnected(true)
+      setConnectionStatus("Connected")
+    })
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from server")
+      setIsConnected(false)
+      setConnectionStatus("Disconnected")
+    })
+
+    socket.on("connect_error", (error) => {
+      console.error("Connection error:", error)
+      setConnectionStatus("Connection Error")
+    })
+
     socket.on("authenticated", (data) => {
+      console.log("Authentication response:", data)
       if (data.success) {
         sessionStorage.setItem("userRole", data.role)
 
@@ -47,6 +68,11 @@ export default function Home() {
   }
 
   const selectRole = (role: string) => {
+    if (!isConnected) {
+      alert("Please wait for connection to establish")
+      return
+    }
+
     setSelectedRole(role)
 
     if (role === "spectator") {
@@ -57,11 +83,17 @@ export default function Home() {
   }
 
   const authenticate = () => {
-    if (pin.length !== 5) {
-      alert("Please enter a 5-digit PIN")
+    if (!pin.trim()) {
+      alert("Please enter a PIN")
       return
     }
 
+    if (!isConnected) {
+      alert("Not connected to server. Please refresh the page.")
+      return
+    }
+
+    console.log("Sending authentication:", { role: selectedRole, pin })
     socket.emit("authenticate", { role: selectedRole, pin })
   }
 
@@ -76,6 +108,15 @@ export default function Home() {
       <div className="header">
         <h1 className="title">🏏 CRICKET AUCTION</h1>
         <p className="subtitle">Select your role to join the auction</p>
+        <p
+          style={{
+            color: isConnected ? "#4ecdc4" : "#ff6b6b",
+            fontSize: "0.9rem",
+            marginTop: "0.5rem",
+          }}
+        >
+          Status: {connectionStatus}
+        </p>
       </div>
 
       <div className="role-selection">
@@ -108,19 +149,19 @@ export default function Home() {
       {showModal && (
         <div className="modal" style={{ display: "block" }}>
           <div className="modal-content">
-            <h3>Enter PIN</h3>
+            <h3>Enter PIN for {selectedRole}</h3>
             <input
               type="password"
               className="pin-input"
-              placeholder="Enter 5-digit PIN"
-              maxLength={5}
+              placeholder="Enter PIN"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && authenticate()}
+              autoFocus
             />
             <div className="modal-buttons">
-              <button onClick={authenticate} className="btn-primary">
-                Enter
+              <button onClick={authenticate} className="btn-primary" disabled={!isConnected}>
+                {isConnected ? "Enter" : "Connecting..."}
               </button>
               <button onClick={closeModal} className="btn-secondary">
                 Cancel

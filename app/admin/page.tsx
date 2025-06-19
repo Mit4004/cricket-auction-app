@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [playerRole, setPlayerRole] = useState("Batsman")
   const [captain1Balance, setCaptain1Balance] = useState(1000000)
   const [captain2Balance, setCaptain2Balance] = useState(1000000)
+  const [isConnected, setIsConnected] = useState(false)
 
   useEffect(() => {
     const userRole = sessionStorage.getItem("userRole")
@@ -63,12 +64,21 @@ export default function AdminPage() {
   }, [])
 
   const socketInitializer = async () => {
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "", {
-      path: "/api/socket",
+    socket = io({
+      path: "/api/socketio",
       addTrailingSlash: false,
     })
 
-    socket.emit("authenticate", { role: "admin", pin: "12345" })
+    socket.on("connect", () => {
+      console.log("Admin connected to server")
+      setIsConnected(true)
+      // Re-authenticate as admin
+      socket.emit("authenticate", { role: "admin", pin: process.env.NEXT_PUBLIC_ADMIN_PIN || "admin123" })
+    })
+
+    socket.on("disconnect", () => {
+      setIsConnected(false)
+    })
 
     socket.on("gameState", (state: GameState) => {
       setGameState(state)
@@ -99,6 +109,11 @@ export default function AdminPage() {
   const addPlayer = () => {
     if (!playerName.trim()) {
       alert("Please enter player name")
+      return
+    }
+
+    if (!isConnected) {
+      alert("Not connected to server")
       return
     }
 
@@ -143,7 +158,6 @@ export default function AdminPage() {
   }
 
   const showNotification = (message: string) => {
-    // Simple notification implementation
     const notification = document.createElement("div")
     notification.style.cssText = `
       position: fixed;
@@ -165,9 +179,14 @@ export default function AdminPage() {
     <div className="admin-container">
       <div className="admin-header">
         <h1>🏏 Admin Control Panel</h1>
-        <button onClick={logout} className="btn-secondary">
-          Logout
-        </button>
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <span style={{ color: isConnected ? "#4ecdc4" : "#ff6b6b" }}>
+            {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
+          </span>
+          <button onClick={logout} className="btn-secondary">
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="admin-grid">
@@ -187,7 +206,7 @@ export default function AdminPage() {
               <option value="All-Rounder">All-Rounder</option>
               <option value="Wicket-Keeper">Wicket-Keeper</option>
             </select>
-            <button onClick={addPlayer} className="btn-primary">
+            <button onClick={addPlayer} className="btn-primary" disabled={!isConnected}>
               Add Player
             </button>
           </div>
@@ -218,7 +237,7 @@ export default function AdminPage() {
             <input type="number" value={captain1Balance} onChange={(e) => setCaptain1Balance(Number(e.target.value))} />
             <label>Captain 2 Balance:</label>
             <input type="number" value={captain2Balance} onChange={(e) => setCaptain2Balance(Number(e.target.value))} />
-            <button onClick={setBalances} className="btn-primary">
+            <button onClick={setBalances} className="btn-primary" disabled={!isConnected}>
               Update Balances
             </button>
           </div>
@@ -231,21 +250,21 @@ export default function AdminPage() {
             <button
               onClick={startTimer}
               className="btn-success"
-              disabled={gameState.timerActive || gameState.auctionEnded}
+              disabled={gameState.timerActive || gameState.auctionEnded || !isConnected}
             >
               Start Timer
             </button>
             <button
               onClick={stopTimer}
               className="btn-warning"
-              disabled={!gameState.timerActive || gameState.auctionEnded}
+              disabled={!gameState.timerActive || gameState.auctionEnded || !isConnected}
             >
               Stop Timer
             </button>
-            <button onClick={nextPlayer} className="btn-primary" disabled={gameState.auctionEnded}>
+            <button onClick={nextPlayer} className="btn-primary" disabled={gameState.auctionEnded || !isConnected}>
               Next Player
             </button>
-            <button onClick={endAuction} className="btn-danger" disabled={gameState.auctionEnded}>
+            <button onClick={endAuction} className="btn-danger" disabled={gameState.auctionEnded || !isConnected}>
               End Auction
             </button>
           </div>
