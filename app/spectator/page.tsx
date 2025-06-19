@@ -20,9 +20,11 @@ interface GameState {
   captain1Team: Player[]
   captain2Team: Player[]
   timerActive: boolean
+  timerPaused: boolean
   timeRemaining: number
   auctionActive: boolean
   auctionEnded: boolean
+  auctionStarted: boolean
   lastUpdate: number
 }
 
@@ -75,8 +77,8 @@ export default function SpectatorPage() {
           <p style={{ color: "#4ecdc4", fontSize: "0.9rem" }}>🟢 Connected</p>
         </div>
       ) : gameState.auctionEnded ? (
-        <div className="teams-display">
-          <h2>Final Teams</h2>
+        <div className="teams-display fade-in">
+          <h2>🏆 Final Teams</h2>
           <div className="teams-grid">
             <div className="team-section">
               <h3>⚡ Team Lightning</h3>
@@ -88,6 +90,19 @@ export default function SpectatorPage() {
                     <div className="team-player-price">₹{player.soldPrice?.toLocaleString()}</div>
                   </div>
                 ))}
+              </div>
+              <div
+                style={{
+                  marginTop: "1rem",
+                  padding: "1rem",
+                  background: "rgba(78, 205, 196, 0.1)",
+                  borderRadius: "8px",
+                }}
+              >
+                <strong>
+                  Total Spent: ₹
+                  {gameState.captain1Team.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}
+                </strong>
               </div>
             </div>
             <div className="team-section">
@@ -101,16 +116,54 @@ export default function SpectatorPage() {
                   </div>
                 ))}
               </div>
+              <div
+                style={{
+                  marginTop: "1rem",
+                  padding: "1rem",
+                  background: "rgba(255, 107, 107, 0.1)",
+                  borderRadius: "8px",
+                }}
+              >
+                <strong>
+                  Total Spent: ₹
+                  {gameState.captain2Team.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}
+                </strong>
+              </div>
             </div>
+          </div>
+          <div
+            style={{ marginTop: "2rem", padding: "1rem", background: "rgba(255, 255, 255, 0.05)", borderRadius: "8px" }}
+          >
+            <p style={{ color: "#ff6b6b", fontSize: "1.1rem" }}>
+              🕒 Auction data will be automatically cleared in 25 seconds
+            </p>
           </div>
         </div>
       ) : (
         <div className="main-display">
           <div className="player-showcase">
-            <div className="player-card-large">
+            <div
+              className="player-card-large pulse"
+              style={{
+                border: "3px solid #00f5ff",
+                background: "linear-gradient(135deg, #1a1a2e, #16213e)",
+                boxShadow: "0 0 40px rgba(0, 245, 255, 0.4)",
+              }}
+            >
               <div className="player-image">🏏</div>
               <div className="player-name">{currentPlayer?.name}</div>
               <div className="player-role">{currentPlayer?.role}</div>
+              <div
+                style={{
+                  marginTop: "1rem",
+                  padding: "0.5rem",
+                  background: "rgba(0, 245, 255, 0.2)",
+                  borderRadius: "8px",
+                  border: "2px solid #00f5ff",
+                }}
+              >
+                <strong style={{ color: "#00f5ff" }}>🎯 ON AUCTION</strong>
+              </div>
             </div>
           </div>
 
@@ -131,13 +184,73 @@ export default function SpectatorPage() {
                   className="timer-number"
                   style={{
                     color: gameState.timeRemaining <= 10 ? "#ff4444" : "#ff6b6b",
+                    animation: gameState.timeRemaining <= 10 ? "pulse 0.5s infinite" : "none",
                   }}
                 >
                   {gameState.timeRemaining}
                 </div>
               </div>
-              <p>seconds remaining</p>
+              <p>
+                seconds remaining
+                {gameState.timerPaused && (
+                  <span style={{ color: "#f39c12", display: "block", fontSize: "0.9rem" }}>⏸️ PAUSED</span>
+                )}
+              </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Stats */}
+      {gameState.auctionActive && !gameState.auctionEnded && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "1rem",
+            marginTop: "2rem",
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(78, 205, 196, 0.1)",
+              padding: "1rem",
+              borderRadius: "8px",
+              border: "2px solid #4ecdc4",
+              textAlign: "center",
+            }}
+          >
+            <h4 style={{ color: "#4ecdc4" }}>⚡ Team Lightning</h4>
+            <p>Balance: ₹{gameState.captain1Balance.toLocaleString()}</p>
+            <p>Players: {gameState.captain1Team.length}</p>
+          </div>
+          <div
+            style={{
+              background: "rgba(255, 107, 107, 0.1)",
+              padding: "1rem",
+              borderRadius: "8px",
+              border: "2px solid #ff6b6b",
+              textAlign: "center",
+            }}
+          >
+            <h4 style={{ color: "#ff6b6b" }}>🔥 Team Thunder</h4>
+            <p>Balance: ₹{gameState.captain2Balance.toLocaleString()}</p>
+            <p>Players: {gameState.captain2Team.length}</p>
+          </div>
+          <div
+            style={{
+              background: "rgba(0, 245, 255, 0.1)",
+              padding: "1rem",
+              borderRadius: "8px",
+              border: "2px solid #00f5ff",
+              textAlign: "center",
+            }}
+          >
+            <h4 style={{ color: "#00f5ff" }}>📊 Progress</h4>
+            <p>
+              Player {gameState.currentPlayerIndex + 1} of {gameState.players.length}
+            </p>
+            <p>Remaining: {gameState.players.length - gameState.currentPlayerIndex - 1}</p>
           </div>
         </div>
       )}

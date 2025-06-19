@@ -20,9 +20,11 @@ interface GameState {
   captain1Team: Player[]
   captain2Team: Player[]
   timerActive: boolean
+  timerPaused: boolean
   timeRemaining: number
   auctionActive: boolean
   auctionEnded: boolean
+  auctionStarted: boolean
   lastUpdate: number
 }
 
@@ -87,6 +89,11 @@ export default function CaptainPage() {
       return
     }
 
+    if (gameState.timerPaused) {
+      alert("Timer is paused - bidding not allowed")
+      return
+    }
+
     try {
       const response = await fetch("/api/captain/place-bid", {
         method: "POST",
@@ -135,6 +142,7 @@ export default function CaptainPage() {
       border-radius: 8px;
       box-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
       z-index: 1000;
+      animation: slideIn 0.3s ease-out;
     `
     notification.textContent = message
     document.body.appendChild(notification)
@@ -175,8 +183,8 @@ export default function CaptainPage() {
           <p>Waiting for auction to start...</p>
         </div>
       ) : gameState.auctionEnded ? (
-        <div className="team-display">
-          <h3>Your Team</h3>
+        <div className="team-display fade-in">
+          <h3>🏆 Your Final Team</h3>
           <div className="team-list">
             {myTeam.map((player) => (
               <div key={player.id} className="team-player">
@@ -186,13 +194,45 @@ export default function CaptainPage() {
               </div>
             ))}
           </div>
+          <div
+            style={{
+              marginTop: "2rem",
+              padding: "1rem",
+              background: "rgba(78, 205, 196, 0.1)",
+              borderRadius: "8px",
+              textAlign: "center",
+            }}
+          >
+            <h4>Team Summary</h4>
+            <p>Total Players: {myTeam.length}</p>
+            <p>Total Spent: ₹{myTeam.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}</p>
+            <p>Remaining Balance: ₹{currentBalance.toLocaleString()}</p>
+          </div>
         </div>
       ) : (
         <div className="player-display">
-          <div className="player-card">
+          <div
+            className="player-card pulse"
+            style={{
+              border: "3px solid #00f5ff",
+              background: "linear-gradient(135deg, #1a1a2e, #16213e)",
+              boxShadow: "0 0 40px rgba(0, 245, 255, 0.4)",
+            }}
+          >
             <div className="player-image">🏏</div>
             <div className="player-name">{currentPlayer?.name}</div>
             <div className="player-role">{currentPlayer?.role}</div>
+            <div
+              style={{
+                marginTop: "1rem",
+                padding: "0.5rem",
+                background: "rgba(0, 245, 255, 0.2)",
+                borderRadius: "8px",
+                border: "2px solid #00f5ff",
+              }}
+            >
+              <strong style={{ color: "#00f5ff" }}>🎯 ON AUCTION</strong>
+            </div>
           </div>
 
           <div className="bid-section">
@@ -209,6 +249,9 @@ export default function CaptainPage() {
                 {gameState.highestBidder
                   ? `Highest bidder: ${gameState.highestBidder === "captain1" ? "Captain 1 ⚡" : "Captain 2 🔥"}`
                   : "No bids yet"}
+                {gameState.highestBidder === userRole && (
+                  <span style={{ color: "#4ecdc4", display: "block" }}>🏆 YOU'RE WINNING!</span>
+                )}
               </div>
             </div>
 
@@ -222,7 +265,12 @@ export default function CaptainPage() {
               >
                 {gameState.timeRemaining}
               </div>
-              <p>seconds remaining</p>
+              <p>
+                seconds remaining
+                {gameState.timerPaused && (
+                  <span style={{ color: "#f39c12", display: "block", fontSize: "0.9rem" }}>⏸️ PAUSED</span>
+                )}
+              </p>
             </div>
 
             <div className="bid-controls">
@@ -234,23 +282,65 @@ export default function CaptainPage() {
                 value={bidAmount}
                 onChange={(e) => setBidAmount(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && placeBid()}
+                disabled={!gameState.timerActive || gameState.timerPaused}
               />
-              <button onClick={placeBid} className="btn-bid">
+              <button onClick={placeBid} className="btn-bid" disabled={!gameState.timerActive || gameState.timerPaused}>
                 Place Bid
               </button>
             </div>
 
             <div className="quick-bids">
-              <button onClick={() => quickBid(50000)} className="btn-quick">
+              <button
+                onClick={() => quickBid(50000)}
+                className="btn-quick"
+                disabled={!gameState.timerActive || gameState.timerPaused}
+              >
                 +50K
               </button>
-              <button onClick={() => quickBid(100000)} className="btn-quick">
+              <button
+                onClick={() => quickBid(100000)}
+                className="btn-quick"
+                disabled={!gameState.timerActive || gameState.timerPaused}
+              >
                 +100K
               </button>
-              <button onClick={() => quickBid(200000)} className="btn-quick">
+              <button
+                onClick={() => quickBid(200000)}
+                className="btn-quick"
+                disabled={!gameState.timerActive || gameState.timerPaused}
+              >
                 +200K
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* My Team Summary */}
+      {myTeam.length > 0 && !gameState.auctionEnded && (
+        <div
+          style={{
+            marginTop: "2rem",
+            padding: "1rem",
+            background: "rgba(255, 255, 255, 0.05)",
+            borderRadius: "8px",
+          }}
+        >
+          <h4>My Team ({myTeam.length} players)</h4>
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "1rem" }}>
+            {myTeam.map((player) => (
+              <div
+                key={player.id}
+                style={{
+                  background: "rgba(78, 205, 196, 0.1)",
+                  padding: "0.5rem",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                }}
+              >
+                {player.name} - ₹{player.soldPrice?.toLocaleString()}
+              </div>
+            ))}
           </div>
         </div>
       )}
