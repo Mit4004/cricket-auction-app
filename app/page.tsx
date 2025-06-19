@@ -28,6 +28,8 @@ export default function Home() {
     setIsLoading(true)
 
     try {
+      console.log("Attempting authentication for role:", selectedRole, "with pin:", pin)
+
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: {
@@ -36,7 +38,16 @@ export default function Home() {
         body: JSON.stringify({ role: selectedRole, pin }),
       })
 
+      console.log("Response status:", response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("Response error:", errorText)
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+
       const data = await response.json()
+      console.log("Authentication response:", data)
 
       if (data.success) {
         sessionStorage.setItem("userRole", data.role)
@@ -57,7 +68,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Authentication error:", error)
-      alert("Connection error. Please try again.")
+      alert(`Connection error: ${error.message}. Please check the console for details.`)
     } finally {
       setIsLoading(false)
     }

@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["socket.io"],
+    serverComponentsExternalPackages: [],
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -11,6 +11,15 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+  },
+  // Add API routes configuration
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: "/api/:path*",
+      },
+    ]
   },
 }
 
