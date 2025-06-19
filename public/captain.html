@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cricket Auction - Captain</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/captain.css">
+</head>
+<body>
+    <div class="captain-container">
+        <div class="captain-header">
+            <h1 id="captainTitle">🏏 Captain Panel</h1>
+            <div class="balance-display">
+                <span>Balance: ₹<span id="balance">0</span></span>
+            </div>
+            <button onclick="logout()" class="btn-secondary">Logout</button>
+        </div>
+
+        <div class="auction-status" id="auctionStatus">
+            <p>Waiting for auction to start...</p>
+        </div>
+
+        <div class="player-display" id="playerDisplay" style="display: none;">
+            <div class="player-card" id="playerCard"></div>
+            
+            <div class="bid-section">
+                <div class="current-bid">
+                    <h3>Current Highest Bid</h3>
+                    <div class="bid-amount">₹<span id="currentBid">0</span></div>
+                    <div class="highest-bidder" id="highestBidder">No bids yet</div>
+                </div>
+                
+                <div class="timer-display">
+                    <div class="timer" id="timer">60</div>
+                    <p>seconds remaining</p>
+                </div>
+                
+                <div class="bid-controls">
+                    <input type="number" id="bidAmount" placeholder="Enter bid amount" min="0">
+                    <button onclick="placeBid()" class="btn-bid" id="bidBtn">Place Bid</button>
+                </div>
+                
+                <div class="quick-bids">
+                    <button onclick="quickBid(50000)" class="btn-quick">+50K</button>
+                    <button onclick="quickBid(100000)" class="btn-quick">+100K</button>
+                    <button onclick="quickBid(200000)" class="btn-quick">+200K</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="team-display" id="teamDisplay" style="display: none;">
+            <h3>Your Team</h3>
+            <div class="team-list" id="teamList"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts/captain.js"></script>
+</body>
+</html>
