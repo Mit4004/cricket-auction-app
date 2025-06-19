@@ -1,18 +1,27 @@
-import { NextResponse } from 'next/server';
-import { getGameState, saveGameState } from '@/utils/gameState';
+import { type NextRequest, NextResponse } from "next/server"
+import gameStateManager, { authenticateUser } from "@/lib/game-state"
 
-export async function POST(req: Request) {
-  const body = await req.json();
-  const { name, role } = body;
+export async function POST(request: NextRequest) {
+  console.log("Add player API called")
 
-  if (!name || !role) {
-    return NextResponse.json({ error: 'Missing name or role' }, { status: 400 });
+  try {
+    const body = await request.json()
+    const { name, role, adminPin } = body
+
+    console.log("Admin PIN check:", { provided: adminPin })
+
+    // Verify admin PIN
+    if (!authenticateUser("admin", adminPin)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const gameState = gameStateManager.addPlayer({ name, role })
+    console.log("Player added successfully:", { name, role })
+    console.log("Current players:", gameState.players)
+
+    return NextResponse.json(gameState)
+  } catch (error) {
+    console.error("Add player error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
-
-  const state = getGameState();
-  const newPlayer = { id: Date.now(), name, role };
-  state.players.push(newPlayer);
-  saveGameState(state);
-
-  return NextResponse.json({ message: 'Player added', player: newPlayer });
 }

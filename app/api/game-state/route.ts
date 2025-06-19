@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
-import { getGameState } from '@/utils/gameState';
+import { NextResponse } from "next/server"
+import gameStateManager from "@/lib/game-state"
 
-export function GET() {
-  const state = getGameState();
-  return NextResponse.json(state);
+export async function GET() {
+  console.log("Game state API called")
+  const gameState = gameStateManager.getState()
+  return NextResponse.json(gameState)
 }
