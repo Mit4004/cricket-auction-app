@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 
 interface Player {
   id: number
@@ -34,19 +34,44 @@ interface GameState {
 export default function SpectatorPage() {
   const [gameState, setGameState] = useState<GameState | null>(null)
 
+  // Use refs to prevent unnecessary re-renders
+  const lastUpdateRef = useRef<number>(0)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     fetchGameState()
 
-    // Poll for updates every 1 second
-    const interval = setInterval(fetchGameState, 1000)
-    return () => clearInterval(interval)
+    // Start polling with longer interval
+    startPolling()
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
   }, [])
 
-  const fetchGameState = async () => {
+  const startPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+    }
+
+    // Reduced polling frequency from 1 second to 2 seconds
+    pollingIntervalRef.current = setInterval(() => {
+      fetchGameState(true) // Silent fetch
+    }, 2000)
+  }
+
+  const fetchGameState = async (silent = false) => {
     try {
       const response = await fetch("/api/game-state")
       const data = await response.json()
-      setGameState(data)
+
+      // Only update state if data has actually changed
+      if (data.lastUpdate !== lastUpdateRef.current) {
+        setGameState(data)
+        lastUpdateRef.current = data.lastUpdate
+      }
     } catch (error) {
       console.error("Error fetching game state:", error)
     }

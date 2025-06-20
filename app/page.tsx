@@ -83,7 +83,7 @@ export default function Home() {
   return (
     <div className="container">
       <div className="header">
-        <h1 className="title">🏏4BE CRICKET AUCTION</h1>
+        <h1 className="title">🏏 CRICKET AUCTION</h1>
         <p className="subtitle">Select your role to join the auction</p>
       </div>
 

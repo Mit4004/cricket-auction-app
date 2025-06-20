@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 
 interface Player {
   id: number
@@ -36,6 +36,17 @@ export default function CaptainPage() {
   const [bidAmount, setBidAmount] = useState("")
   const [userRole, setUserRole] = useState<string>("")
   const [captainPin, setCaptainPin] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Use refs to prevent state loss during re-renders
+  const lastUpdateRef = useRef<number>(0)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const bidAmountRef = useRef<string>("")
+
+  // Keep bid amount in sync with ref
+  useEffect(() => {
+    bidAmountRef.current = bidAmount
+  }, [bidAmount])
 
   useEffect(() => {
     const role = sessionStorage.getItem("userRole")
@@ -50,18 +61,43 @@ export default function CaptainPage() {
     setCaptainPin(pin)
     fetchGameState()
 
-    // Poll for updates every 1 second
-    const interval = setInterval(fetchGameState, 1000)
-    return () => clearInterval(interval)
+    // Start polling with longer interval
+    startPolling()
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
   }, [])
 
-  const fetchGameState = async () => {
+  const startPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+    }
+
+    // Reduced polling frequency from 1 second to 2 seconds
+    pollingIntervalRef.current = setInterval(() => {
+      fetchGameState(true) // Silent fetch
+    }, 2000)
+  }
+
+  const fetchGameState = async (silent = false) => {
     try {
+      if (!silent) setIsLoading(true)
+
       const response = await fetch("/api/game-state")
       const data = await response.json()
-      setGameState(data)
+
+      // Only update state if data has actually changed
+      if (data.lastUpdate !== lastUpdateRef.current) {
+        setGameState(data)
+        lastUpdateRef.current = data.lastUpdate
+      }
     } catch (error) {
       console.error("Error fetching game state:", error)
+    } finally {
+      if (!silent) setIsLoading(false)
     }
   }
 
@@ -99,6 +135,7 @@ export default function CaptainPage() {
       return
     }
 
+    setIsLoading(true)
     try {
       const response = await fetch("/api/captain/place-bid", {
         method: "POST",
@@ -112,7 +149,7 @@ export default function CaptainPage() {
 
       if (data.success) {
         setBidAmount("")
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage("Bid placed successfully!")
       } else {
         alert("Error placing bid")
@@ -120,6 +157,8 @@ export default function CaptainPage() {
     } catch (error) {
       console.error("Error placing bid:", error)
       alert("Error placing bid")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -132,6 +171,9 @@ export default function CaptainPage() {
   }
 
   const logout = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+    }
     sessionStorage.removeItem("userRole")
     sessionStorage.removeItem("userPin")
     window.location.href = "/"
@@ -185,6 +227,7 @@ export default function CaptainPage() {
         </div>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
           <span style={{ color: "#4ecdc4" }}>🟢 Connected</span>
+          {isLoading && <span style={{ color: "#f39c12" }}>⏳ Loading...</span>}
           <button onClick={logout} className="btn-secondary">
             Logout
           </button>
@@ -339,10 +382,14 @@ export default function CaptainPage() {
                 value={bidAmount}
                 onChange={(e) => setBidAmount(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && placeBid()}
-                disabled={!gameState.timerActive || gameState.timerPaused}
+                disabled={!gameState.timerActive || gameState.timerPaused || isLoading}
               />
-              <button onClick={placeBid} className="btn-bid" disabled={!gameState.timerActive || gameState.timerPaused}>
-                Place Bid
+              <button
+                onClick={placeBid}
+                className="btn-bid"
+                disabled={!gameState.timerActive || gameState.timerPaused || isLoading}
+              >
+                {isLoading ? "Placing..." : "Place Bid"}
               </button>
             </div>
 
@@ -350,21 +397,21 @@ export default function CaptainPage() {
               <button
                 onClick={() => quickBid(50000)}
                 className="btn-quick"
-                disabled={!gameState.timerActive || gameState.timerPaused}
+                disabled={!gameState.timerActive || gameState.timerPaused || isLoading}
               >
                 +50K
               </button>
               <button
                 onClick={() => quickBid(100000)}
                 className="btn-quick"
-                disabled={!gameState.timerActive || gameState.timerPaused}
+                disabled={!gameState.timerActive || gameState.timerPaused || isLoading}
               >
                 +100K
               </button>
               <button
                 onClick={() => quickBid(200000)}
                 className="btn-quick"
-                disabled={!gameState.timerActive || gameState.timerPaused}
+                disabled={!gameState.timerActive || gameState.timerPaused || isLoading}
               >
                 +200K
               </button>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 
 interface Player {
   id: number
@@ -41,6 +41,11 @@ export default function AdminPage() {
   const [captain2Balance, setCaptain2Balance] = useState(1000000)
   const [preAuctionMinutes, setPreAuctionMinutes] = useState(5)
   const [adminPin, setAdminPin] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Use refs to prevent state loss during re-renders
+  const lastUpdateRef = useRef<number>(0)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const userRole = sessionStorage.getItem("userRole")
@@ -54,20 +59,49 @@ export default function AdminPage() {
     setAdminPin(userPin)
     fetchGameState()
 
-    // Poll for updates every 1 second
-    const interval = setInterval(fetchGameState, 1000)
-    return () => clearInterval(interval)
+    // Start polling with longer interval to reduce refresh frequency
+    startPolling()
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
   }, [])
 
-  const fetchGameState = async () => {
+  const startPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+    }
+
+    // Reduced polling frequency from 1 second to 2 seconds
+    pollingIntervalRef.current = setInterval(() => {
+      fetchGameState(true) // Silent fetch to avoid UI disruption
+    }, 2000)
+  }
+
+  const fetchGameState = async (silent = false) => {
     try {
+      if (!silent) setIsLoading(true)
+
       const response = await fetch("/api/game-state")
       const data = await response.json()
-      setGameState(data)
-      setCaptain1Balance(data.captain1Balance)
-      setCaptain2Balance(data.captain2Balance)
+
+      // Only update state if data has actually changed
+      if (data.lastUpdate !== lastUpdateRef.current) {
+        setGameState(data)
+        lastUpdateRef.current = data.lastUpdate
+
+        // Only update balance inputs if they haven't been manually changed
+        if (!silent) {
+          setCaptain1Balance(data.captain1Balance)
+          setCaptain2Balance(data.captain2Balance)
+        }
+      }
     } catch (error) {
       console.error("Error fetching game state:", error)
+    } finally {
+      if (!silent) setIsLoading(false)
     }
   }
 
@@ -82,6 +116,7 @@ export default function AdminPage() {
       return
     }
 
+    setIsLoading(true)
     try {
       const response = await fetch("/api/admin/add-player", {
         method: "POST",
@@ -94,7 +129,7 @@ export default function AdminPage() {
       if (response.ok) {
         setPlayerName("")
         setPlayerBasePrice(50000)
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage("Player added successfully!")
       } else {
         alert("Error adding player")
@@ -102,6 +137,8 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error adding player:", error)
       alert("Error adding player")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -112,6 +149,7 @@ export default function AdminPage() {
     }
 
     if (confirm("Are you sure you want to remove this player?")) {
+      setIsLoading(true)
       try {
         const response = await fetch("/api/admin/remove-player", {
           method: "POST",
@@ -122,7 +160,7 @@ export default function AdminPage() {
         })
 
         if (response.ok) {
-          fetchGameState()
+          await fetchGameState()
           showSuccessMessage("Player removed successfully!")
         } else {
           alert("Error removing player")
@@ -130,6 +168,8 @@ export default function AdminPage() {
       } catch (error) {
         console.error("Error removing player:", error)
         alert("Error removing player")
+      } finally {
+        setIsLoading(false)
       }
     }
   }
@@ -140,6 +180,7 @@ export default function AdminPage() {
       return
     }
 
+    setIsLoading(true)
     try {
       const response = await fetch("/api/admin/set-balances", {
         method: "POST",
@@ -150,7 +191,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage("Balances updated successfully!")
       } else {
         alert("Error setting balances")
@@ -158,6 +199,8 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error setting balances:", error)
       alert("Error setting balances")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -169,6 +212,7 @@ export default function AdminPage() {
 
     const seconds = preAuctionMinutes * 60
 
+    setIsLoading(true)
     try {
       const response = await fetch("/api/admin/start-pre-auction-timer", {
         method: "POST",
@@ -179,7 +223,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage(`Pre-auction timer started for ${preAuctionMinutes} minutes!`)
       } else {
         const error = await response.json()
@@ -188,6 +232,8 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error starting pre-auction timer:", error)
       alert("Error starting pre-auction timer")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -197,6 +243,7 @@ export default function AdminPage() {
       return
     }
 
+    setIsLoading(true)
     try {
       const response = await fetch("/api/admin/start-auction", {
         method: "POST",
@@ -207,7 +254,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage("Auction started successfully!")
       } else {
         const error = await response.json()
@@ -216,6 +263,8 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error starting auction:", error)
       alert("Error starting auction")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -225,6 +274,7 @@ export default function AdminPage() {
       return
     }
 
+    setIsLoading(true)
     try {
       const response = await fetch("/api/admin/start-timer", {
         method: "POST",
@@ -235,7 +285,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage("Timer started!")
       } else {
         alert("Error starting timer")
@@ -243,10 +293,13 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error starting timer:", error)
       alert("Error starting timer")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const pauseTimer = async () => {
+    setIsLoading(true)
     try {
       const response = await fetch("/api/admin/pause-timer", {
         method: "POST",
@@ -257,7 +310,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage("Timer paused!")
       } else {
         alert("Error pausing timer")
@@ -265,10 +318,13 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error pausing timer:", error)
       alert("Error pausing timer")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const resumeTimer = async () => {
+    setIsLoading(true)
     try {
       const response = await fetch("/api/admin/resume-timer", {
         method: "POST",
@@ -279,7 +335,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage("Timer resumed!")
       } else {
         alert("Error resuming timer")
@@ -287,10 +343,13 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error resuming timer:", error)
       alert("Error resuming timer")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const stopTimer = async () => {
+    setIsLoading(true)
     try {
       const response = await fetch("/api/admin/stop-timer", {
         method: "POST",
@@ -301,7 +360,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage("Timer stopped!")
       } else {
         alert("Error stopping timer")
@@ -309,10 +368,13 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error stopping timer:", error)
       alert("Error stopping timer")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const nextPlayer = async () => {
+    setIsLoading(true)
     try {
       const response = await fetch("/api/admin/next-player", {
         method: "POST",
@@ -323,7 +385,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        fetchGameState()
+        await fetchGameState()
         showSuccessMessage("Moved to next player!")
       } else {
         alert("Error moving to next player")
@@ -331,11 +393,14 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error moving to next player:", error)
       alert("Error moving to next player")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const endAuction = async () => {
     if (confirm("Are you sure you want to end the auction?")) {
+      setIsLoading(true)
       try {
         const response = await fetch("/api/admin/end-auction", {
           method: "POST",
@@ -346,7 +411,7 @@ export default function AdminPage() {
         })
 
         if (response.ok) {
-          fetchGameState()
+          await fetchGameState()
           showSuccessMessage("Auction ended!")
         } else {
           alert("Error ending auction")
@@ -354,12 +419,15 @@ export default function AdminPage() {
       } catch (error) {
         console.error("Error ending auction:", error)
         alert("Error ending auction")
+      } finally {
+        setIsLoading(false)
       }
     }
   }
 
   const restartAuction = async () => {
     if (confirm("Are you sure you want to restart the auction? This will clear all data.")) {
+      setIsLoading(true)
       try {
         const response = await fetch("/api/admin/restart-auction", {
           method: "POST",
@@ -370,7 +438,7 @@ export default function AdminPage() {
         })
 
         if (response.ok) {
-          fetchGameState()
+          await fetchGameState()
           showSuccessMessage("Auction restarted successfully!")
         } else {
           alert("Error restarting auction")
@@ -378,12 +446,15 @@ export default function AdminPage() {
       } catch (error) {
         console.error("Error restarting auction:", error)
         alert("Error restarting auction")
+      } finally {
+        setIsLoading(false)
       }
     }
   }
 
   const clearData = async () => {
     if (confirm("Are you sure you want to clear all auction data? This action cannot be undone.")) {
+      setIsLoading(true)
       try {
         const response = await fetch("/api/admin/clear-data", {
           method: "POST",
@@ -394,7 +465,7 @@ export default function AdminPage() {
         })
 
         if (response.ok) {
-          fetchGameState()
+          await fetchGameState()
           showSuccessMessage("All data cleared successfully!")
         } else {
           alert("Error clearing data")
@@ -402,11 +473,16 @@ export default function AdminPage() {
       } catch (error) {
         console.error("Error clearing data:", error)
         alert("Error clearing data")
+      } finally {
+        setIsLoading(false)
       }
     }
   }
 
   const logout = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+    }
     sessionStorage.removeItem("userRole")
     sessionStorage.removeItem("userPin")
     window.location.href = "/"
@@ -453,6 +529,7 @@ export default function AdminPage() {
         <h1>👑 Admin Control Panel</h1>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
           <span style={{ color: "#4ecdc4" }}>🟢 Connected</span>
+          {isLoading && <span style={{ color: "#f39c12" }}>⏳ Loading...</span>}
           <button onClick={logout} className="btn-secondary">
             Logout
           </button>
@@ -537,7 +614,12 @@ export default function AdminPage() {
               textAlign: "center",
             }}
           >
-            <button onClick={clearData} className="btn-danger" style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}>
+            <button
+              onClick={clearData}
+              className="btn-danger"
+              style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}
+              disabled={isLoading}
+            >
               🗑️ Clear All Data
             </button>
             <p style={{ color: "#b0b0b0", fontSize: "0.9rem", marginTop: "1rem" }}>
@@ -557,12 +639,12 @@ export default function AdminPage() {
               placeholder="Player Name"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
-              disabled={gameState.auctionActive || gameState.preAuctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive || isLoading}
             />
             <select
               value={playerRole}
               onChange={(e) => setPlayerRole(e.target.value)}
-              disabled={gameState.auctionActive || gameState.preAuctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive || isLoading}
             >
               <option value="Batsman">Batsman</option>
               <option value="Bowler">Bowler</option>
@@ -577,14 +659,14 @@ export default function AdminPage() {
               placeholder="Base Price"
               value={playerBasePrice}
               onChange={(e) => setPlayerBasePrice(Number(e.target.value))}
-              disabled={gameState.auctionActive || gameState.preAuctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive || isLoading}
             />
             <button
               onClick={addPlayer}
               className="btn-primary"
-              disabled={gameState.auctionActive || gameState.preAuctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive || isLoading}
             >
-              Add Player
+              {isLoading ? "Adding..." : "Add Player"}
             </button>
           </div>
           <div className="players-list">
@@ -624,6 +706,7 @@ export default function AdminPage() {
                     onClick={() => removePlayer(player.id)}
                     className="btn-danger"
                     style={{ marginLeft: "auto", padding: "0.5rem" }}
+                    disabled={isLoading}
                   >
                     Remove
                   </button>
@@ -642,21 +725,21 @@ export default function AdminPage() {
               type="number"
               value={captain1Balance}
               onChange={(e) => setCaptain1Balance(Number(e.target.value))}
-              disabled={gameState.auctionActive || gameState.preAuctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive || isLoading}
             />
             <label>Captain 2 Balance:</label>
             <input
               type="number"
               value={captain2Balance}
               onChange={(e) => setCaptain2Balance(Number(e.target.value))}
-              disabled={gameState.auctionActive || gameState.preAuctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive || isLoading}
             />
             <button
               onClick={setBalances}
               className="btn-primary"
-              disabled={gameState.auctionActive || gameState.preAuctionActive}
+              disabled={gameState.auctionActive || gameState.preAuctionActive || isLoading}
             >
-              Update Balances
+              {isLoading ? "Updating..." : "Update Balances"}
             </button>
           </div>
         </div>
@@ -672,14 +755,16 @@ export default function AdminPage() {
               max="60"
               value={preAuctionMinutes}
               onChange={(e) => setPreAuctionMinutes(Number(e.target.value))}
-              disabled={gameState.preAuctionActive || gameState.auctionActive}
+              disabled={gameState.preAuctionActive || gameState.auctionActive || isLoading}
             />
             <button
               onClick={startPreAuctionTimer}
               className="btn-warning"
-              disabled={gameState.preAuctionActive || gameState.auctionActive || gameState.players.length === 0}
+              disabled={
+                gameState.preAuctionActive || gameState.auctionActive || gameState.players.length === 0 || isLoading
+              }
             >
-              Start Pre-Auction Timer
+              {isLoading ? "Starting..." : "Start Pre-Auction Timer"}
             </button>
           </div>
           <p style={{ color: "#b0b0b0", fontSize: "0.9rem", marginTop: "1rem" }}>
@@ -694,47 +779,52 @@ export default function AdminPage() {
             <button
               onClick={startAuction}
               className="btn-success"
-              disabled={gameState.auctionStarted && !gameState.auctionEnded}
+              disabled={(gameState.auctionStarted && !gameState.auctionEnded) || isLoading}
             >
-              Start Auction Now
+              {isLoading ? "Starting..." : "Start Auction Now"}
             </button>
             <button
               onClick={startTimer}
               className="btn-success"
-              disabled={gameState.timerActive || !gameState.auctionActive || gameState.auctionEnded}
+              disabled={gameState.timerActive || !gameState.auctionActive || gameState.auctionEnded || isLoading}
             >
-              Start Timer
+              {isLoading ? "Starting..." : "Start Timer"}
             </button>
             <button
               onClick={gameState.timerPaused ? resumeTimer : pauseTimer}
               className="btn-warning"
-              disabled={!gameState.timerActive || gameState.auctionEnded}
+              disabled={!gameState.timerActive || gameState.auctionEnded || isLoading}
             >
-              {gameState.timerPaused ? "Resume Timer" : "Pause Timer"}
+              {isLoading ? "Processing..." : gameState.timerPaused ? "Resume Timer" : "Pause Timer"}
             </button>
             <button
               onClick={stopTimer}
               className="btn-warning"
-              disabled={!gameState.timerActive || gameState.auctionEnded}
+              disabled={!gameState.timerActive || gameState.auctionEnded || isLoading}
             >
-              Stop Timer
+              {isLoading ? "Stopping..." : "Stop Timer"}
             </button>
             <button
               onClick={nextPlayer}
               className="btn-primary"
-              disabled={gameState.auctionEnded || !gameState.auctionActive}
+              disabled={gameState.auctionEnded || !gameState.auctionActive || isLoading}
             >
-              Next Player (Manual)
+              {isLoading ? "Processing..." : "Next Player (Manual)"}
             </button>
             <button
               onClick={endAuction}
               className="btn-danger"
-              disabled={gameState.auctionEnded || !gameState.auctionActive}
+              disabled={gameState.auctionEnded || !gameState.auctionActive || isLoading}
             >
-              Force End Auction
+              {isLoading ? "Ending..." : "Force End Auction"}
             </button>
-            <button onClick={restartAuction} className="btn-danger" style={{ gridColumn: "span 2" }}>
-              🔄 Restart Auction
+            <button
+              onClick={restartAuction}
+              className="btn-danger"
+              style={{ gridColumn: "span 2" }}
+              disabled={isLoading}
+            >
+              {isLoading ? "Restarting..." : "🔄 Restart Auction"}
             </button>
           </div>
         </div>
@@ -790,13 +880,6 @@ export default function AdminPage() {
                   Captain 2 Balance: ₹{gameState.captain2Balance.toLocaleString()} ({gameState.captain2Team.length}{" "}
                   players)
                 </p>
-                {Math.abs(gameState.captain1Team.length - gameState.captain2Team.length) > 1 && (
-                  <p style={{ color: "#f39c12", fontWeight: "bold" }}>
-                    ⚖️ Team Balance:{" "}
-                    {gameState.captain1Team.length > gameState.captain2Team.length ? "Captain 1" : "Captain 2"} cannot
-                    bid (too many players)
-                  </p>
-                )}
               </>
             ) : gameState.auctionStarted ? (
               <p>🎪 Auction started - Ready for bidding!</p>
