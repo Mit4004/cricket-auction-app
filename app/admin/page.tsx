@@ -28,6 +28,7 @@ interface GameState {
   auctionStarted: boolean
   preAuctionTimer: number
   preAuctionActive: boolean
+  auctionRound: number
   lastUpdate: number
 }
 
@@ -346,7 +347,7 @@ export default function AdminPage() {
 
         if (response.ok) {
           fetchGameState()
-          showSuccessMessage("Auction ended! Data will be cleared in 25 seconds.")
+          showSuccessMessage("Auction ended!")
         } else {
           alert("Error ending auction")
         }
@@ -464,6 +465,14 @@ export default function AdminPage() {
           <h2>🚀 Auction Starting Soon!</h2>
           <div className="pre-auction-countdown">{formatTime(gameState.preAuctionTimer)}</div>
           <p>Get ready! The auction will begin automatically when the timer reaches zero.</p>
+        </div>
+      )}
+
+      {/* Auction Round Display */}
+      {gameState.auctionActive && gameState.auctionRound > 1 && (
+        <div className="auction-round-display fade-in" style={{ marginBottom: "2rem" }}>
+          <h2>🔄 Round {gameState.auctionRound} - Unsold Players Re-Auction</h2>
+          <p>Players who weren't sold in previous rounds are back for bidding!</p>
         </div>
       )}
 
@@ -603,7 +612,7 @@ export default function AdminPage() {
                   <small style={{ color: "#f39c12" }}>Base Price: ₹{player.basePrice?.toLocaleString()}</small>
                   <br />
                   <small>
-                    {player.soldTo
+                    {player.soldTo && player.soldTo !== "unsold"
                       ? `Sold to ${player.soldTo === "captain1" ? "Captain 1" : "Captain 2"} for ₹${player.soldPrice?.toLocaleString()}`
                       : index === gameState.currentPlayerIndex && gameState.auctionActive
                         ? "🔥 ON AUCTION"
@@ -715,14 +724,14 @@ export default function AdminPage() {
               className="btn-primary"
               disabled={gameState.auctionEnded || !gameState.auctionActive}
             >
-              Next Player
+              Next Player (Manual)
             </button>
             <button
               onClick={endAuction}
               className="btn-danger"
               disabled={gameState.auctionEnded || !gameState.auctionActive}
             >
-              End Auction
+              Force End Auction
             </button>
             <button onClick={restartAuction} className="btn-danger" style={{ gridColumn: "span 2" }}>
               🔄 Restart Auction
@@ -742,14 +751,19 @@ export default function AdminPage() {
               </>
             ) : gameState.auctionEnded ? (
               <>
-                <h4>🏁 Auction Ended</h4>
+                <h4>🏁 Auction Completed</h4>
                 <p>Captain 1 Team: {gameState.captain1Team.length} players</p>
                 <p>Captain 2 Team: {gameState.captain2Team.length} players</p>
-                <p style={{ color: "#4ecdc4", fontSize: "0.9rem" }}>✅ Auction completed successfully</p>
+                <p>Total Rounds: {gameState.auctionRound}</p>
+                <p style={{ color: "#4ecdc4", fontSize: "0.9rem" }}>✅ All players have been sold</p>
               </>
             ) : gameState.auctionActive && gameState.players.length > 0 ? (
               <>
                 <h4>🎯 Current Player: {gameState.players[gameState.currentPlayerIndex]?.name || "None"}</h4>
+                <p>
+                  Round {gameState.auctionRound} - Player {gameState.currentPlayerIndex + 1} of{" "}
+                  {gameState.players.length}
+                </p>
                 <p>Base Price: ₹{gameState.players[gameState.currentPlayerIndex]?.basePrice?.toLocaleString()}</p>
                 <p>Current Bid: ₹{gameState.currentBid.toLocaleString()}</p>
                 <p>
@@ -762,10 +776,27 @@ export default function AdminPage() {
                 </p>
                 <p>
                   Timer: {gameState.timeRemaining}s
-                  {gameState.timerActive ? (gameState.timerPaused ? " (⏸️ Paused)" : " (▶️ Running)") : " (⏹️ Stopped)"}
+                  {gameState.timerActive
+                    ? gameState.timerPaused
+                      ? " (⏸️ Paused)"
+                      : " (▶️ Running - Auto-advance at 0)"
+                    : " (⏹️ Stopped)"}
                 </p>
-                <p>Captain 1 Balance: ₹{gameState.captain1Balance.toLocaleString()}</p>
-                <p>Captain 2 Balance: ₹{gameState.captain2Balance.toLocaleString()}</p>
+                <p>
+                  Captain 1 Balance: ₹{gameState.captain1Balance.toLocaleString()} ({gameState.captain1Team.length}{" "}
+                  players)
+                </p>
+                <p>
+                  Captain 2 Balance: ₹{gameState.captain2Balance.toLocaleString()} ({gameState.captain2Team.length}{" "}
+                  players)
+                </p>
+                {Math.abs(gameState.captain1Team.length - gameState.captain2Team.length) > 1 && (
+                  <p style={{ color: "#f39c12", fontWeight: "bold" }}>
+                    ⚖️ Team Balance:{" "}
+                    {gameState.captain1Team.length > gameState.captain2Team.length ? "Captain 1" : "Captain 2"} cannot
+                    bid (too many players)
+                  </p>
+                )}
               </>
             ) : gameState.auctionStarted ? (
               <p>🎪 Auction started - Ready for bidding!</p>
@@ -779,7 +810,7 @@ export default function AdminPage() {
       {/* Current Player Display */}
       {gameState.auctionActive && gameState.players.length > 0 && !gameState.auctionEnded && (
         <div className="current-player-section fade-in">
-          <h3>🎯 Current Player on Auction</h3>
+          <h3>🎯 Current Player on Auction {gameState.auctionRound > 1 && `(Round ${gameState.auctionRound})`}</h3>
           <div className="player-card-admin current-player-card">
             <div className="player-image">🏏</div>
             <div className="player-name">{gameState.players[gameState.currentPlayerIndex]?.name}</div>
@@ -797,6 +828,9 @@ export default function AdminPage() {
               }}
             >
               <strong style={{ color: "#00f5ff" }}>LIVE AUCTION</strong>
+              {gameState.auctionRound > 1 && (
+                <div style={{ fontSize: "0.9rem", marginTop: "0.5rem" }}>Re-auction Round {gameState.auctionRound}</div>
+              )}
             </div>
           </div>
         </div>

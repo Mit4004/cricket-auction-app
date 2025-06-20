@@ -214,6 +214,12 @@ export default function CaptainPage() {
                 <div className="team-player-price">Sold: ₹{player.soldPrice?.toLocaleString()}</div>
               </div>
             ))}
+            {myTeam.length === 0 && (
+              <div style={{ padding: "2rem", textAlign: "center", color: "#b0b0b0", gridColumn: "1 / -1" }}>
+                <h4>No Players Acquired</h4>
+                <p>You didn't win any players in this auction</p>
+              </div>
+            )}
           </div>
           <div className="team-summary">
             <h4>Team Summary</h4>
@@ -221,6 +227,37 @@ export default function CaptainPage() {
             <p>Total Spent: ₹{myTeam.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}</p>
             <p>Remaining Balance: ₹{currentBalance.toLocaleString()}</p>
           </div>
+
+          {/* Show opponent's team summary */}
+          <div
+            className="opponent-summary"
+            style={{
+              marginTop: "2rem",
+              padding: "1rem",
+              background: "rgba(255, 255, 255, 0.05)",
+              borderRadius: "8px",
+            }}
+          >
+            <h4>Opponent Team Summary</h4>
+            {userRole === "captain1" ? (
+              <>
+                <p>🔥 Team Thunder: {gameState.captain2Team.length} players</p>
+                <p>
+                  Their Spending: ₹
+                  {gameState.captain2Team.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}
+                </p>
+              </>
+            ) : (
+              <>
+                <p>⚡ Team Lightning: {gameState.captain1Team.length} players</p>
+                <p>
+                  Their Spending: ₹
+                  {gameState.captain1Team.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}
+                </p>
+              </>
+            )}
+          </div>
+
           <div
             style={{
               marginTop: "2rem",
@@ -231,8 +268,8 @@ export default function CaptainPage() {
               border: "2px solid #4ecdc4",
             }}
           >
-            <h4 style={{ color: "#4ecdc4" }}>🏆 Congratulations!</h4>
-            <p>Your team has been finalized. Great job in the auction!</p>
+            <h4 style={{ color: "#4ecdc4" }}>🏆 Auction Complete!</h4>
+            <p>{myTeam.length > 0 ? "Congratulations on building your team!" : "Better luck next time!"}</p>
           </div>
         </div>
       ) : (

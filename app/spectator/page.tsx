@@ -96,7 +96,7 @@ export default function SpectatorPage() {
         </div>
       ) : gameState.auctionEnded ? (
         <div className="teams-display fade-in">
-          <h2>🏆 Final Teams</h2>
+          <h2>🏆 Final Teams & Results</h2>
           <div className="teams-grid">
             <div className="team-section">
               <h3>⚡ Team Lightning</h3>
@@ -110,6 +110,9 @@ export default function SpectatorPage() {
                     <div className="team-player-price">Sold: ₹{player.soldPrice?.toLocaleString()}</div>
                   </div>
                 ))}
+                {gameState.captain1Team.length === 0 && (
+                  <div style={{ padding: "2rem", textAlign: "center", color: "#b0b0b0" }}>No players acquired</div>
+                )}
               </div>
               <div className="team-summary">
                 <h4>Team Summary</h4>
@@ -133,6 +136,9 @@ export default function SpectatorPage() {
                     <div className="team-player-price">Sold: ₹{player.soldPrice?.toLocaleString()}</div>
                   </div>
                 ))}
+                {gameState.captain2Team.length === 0 && (
+                  <div style={{ padding: "2rem", textAlign: "center", color: "#b0b0b0" }}>No players acquired</div>
+                )}
               </div>
               <div className="team-summary">
                 <h4>Team Summary</h4>
@@ -145,6 +151,33 @@ export default function SpectatorPage() {
               </div>
             </div>
           </div>
+
+          {/* Show unsold players if any */}
+          {gameState.players.filter((p) => p.soldTo === "unsold").length > 0 && (
+            <div className="unsold-section" style={{ marginTop: "2rem" }}>
+              <h3 style={{ color: "#ff6b6b" }}>❌ Unsold Players</h3>
+              <div className="team-cards-grid">
+                {gameState.players
+                  .filter((p) => p.soldTo === "unsold")
+                  .map((player) => (
+                    <div
+                      key={player.id}
+                      className="team-player-card"
+                      style={{ opacity: 0.7, border: "2px solid #ff6b6b" }}
+                    >
+                      <div className="team-player-avatar">🏏</div>
+                      <div className="team-player-name">{player.name}</div>
+                      <div className="team-player-role">{player.role}</div>
+                      <div className="player-base-price">Base: ₹{player.basePrice?.toLocaleString()}</div>
+                      <div className="team-player-price" style={{ color: "#ff6b6b" }}>
+                        UNSOLD
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           <div
             style={{
               marginTop: "2rem",
