@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
+import { useWebSocket } from "@/lib/websocket-client"
 
 interface Player {
   id: number
@@ -11,42 +12,14 @@ interface Player {
   soldPrice?: number
 }
 
-interface GameState {
-  players: Player[]
-  currentPlayerIndex: number
-  currentBid: number
-  highestBidder: string | null
-  captain1Balance: number
-  captain2Balance: number
-  captain1Team: Player[]
-  captain2Team: Player[]
-  timerActive: boolean
-  timerPaused: boolean
-  timeRemaining: number
-  auctionActive: boolean
-  auctionEnded: boolean
-  auctionStarted: boolean
-  preAuctionTimer: number
-  preAuctionActive: boolean
-  lastUpdate: number
-}
-
 export default function CaptainPage() {
-  const [gameState, setGameState] = useState<GameState | null>(null)
   const [bidAmount, setBidAmount] = useState("")
   const [userRole, setUserRole] = useState<string>("")
   const [captainPin, setCaptainPin] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  // Use refs to prevent state loss during re-renders
-  const lastUpdateRef = useRef<number>(0)
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const bidAmountRef = useRef<string>("")
-
-  // Keep bid amount in sync with ref
-  useEffect(() => {
-    bidAmountRef.current = bidAmount
-  }, [bidAmount])
+  // Use WebSocket hook
+  const { gameState, isConnected } = useWebSocket()
 
   useEffect(() => {
     const role = sessionStorage.getItem("userRole")
@@ -59,47 +32,7 @@ export default function CaptainPage() {
 
     setUserRole(role)
     setCaptainPin(pin)
-    fetchGameState()
-
-    // Start polling with longer interval
-    startPolling()
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-      }
-    }
   }, [])
-
-  const startPolling = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current)
-    }
-
-    // Reduced polling frequency from 1 second to 2 seconds
-    pollingIntervalRef.current = setInterval(() => {
-      fetchGameState(true) // Silent fetch
-    }, 2000)
-  }
-
-  const fetchGameState = async (silent = false) => {
-    try {
-      if (!silent) setIsLoading(true)
-
-      const response = await fetch("/api/game-state")
-      const data = await response.json()
-
-      // Only update state if data has actually changed
-      if (data.lastUpdate !== lastUpdateRef.current) {
-        setGameState(data)
-        lastUpdateRef.current = data.lastUpdate
-      }
-    } catch (error) {
-      console.error("Error fetching game state:", error)
-    } finally {
-      if (!silent) setIsLoading(false)
-    }
-  }
 
   const placeBid = async () => {
     const amount = Number.parseInt(bidAmount)
@@ -149,7 +82,6 @@ export default function CaptainPage() {
 
       if (data.success) {
         setBidAmount("")
-        await fetchGameState()
         showSuccessMessage("Bid placed successfully!")
       } else {
         alert("Error placing bid")
@@ -171,9 +103,6 @@ export default function CaptainPage() {
   }
 
   const logout = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current)
-    }
     sessionStorage.removeItem("userRole")
     sessionStorage.removeItem("userPin")
     window.location.href = "/"
@@ -226,7 +155,9 @@ export default function CaptainPage() {
           <span>Balance: ₹{currentBalance.toLocaleString()}</span>
         </div>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <span style={{ color: "#4ecdc4" }}>🟢 Connected</span>
+          <span style={{ color: isConnected ? "#4ecdc4" : "#f39c12" }}>
+            {isConnected ? "🟢 WebSocket Connected" : "🟡 Polling Mode"}
+          </span>
           {isLoading && <span style={{ color: "#f39c12" }}>⏳ Loading...</span>}
           <button onClick={logout} className="btn-secondary">
             Logout

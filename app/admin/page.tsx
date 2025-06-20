@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
+import { useWebSocket } from "@/lib/websocket-client"
 
 interface Player {
   id: number
@@ -11,29 +12,7 @@ interface Player {
   soldPrice?: number
 }
 
-interface GameState {
-  players: Player[]
-  currentPlayerIndex: number
-  currentBid: number
-  highestBidder: string | null
-  captain1Balance: number
-  captain2Balance: number
-  captain1Team: Player[]
-  captain2Team: Player[]
-  timerActive: boolean
-  timerPaused: boolean
-  timeRemaining: number
-  auctionActive: boolean
-  auctionEnded: boolean
-  auctionStarted: boolean
-  preAuctionTimer: number
-  preAuctionActive: boolean
-  auctionRound: number
-  lastUpdate: number
-}
-
 export default function AdminPage() {
-  const [gameState, setGameState] = useState<GameState | null>(null)
   const [playerName, setPlayerName] = useState("")
   const [playerRole, setPlayerRole] = useState("Batsman")
   const [playerBasePrice, setPlayerBasePrice] = useState(50000)
@@ -43,9 +22,8 @@ export default function AdminPage() {
   const [adminPin, setAdminPin] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  // Use refs to prevent state loss during re-renders
-  const lastUpdateRef = useRef<number>(0)
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  // Use WebSocket hook
+  const { gameState, isConnected } = useWebSocket()
 
   useEffect(() => {
     const userRole = sessionStorage.getItem("userRole")
@@ -57,53 +35,13 @@ export default function AdminPage() {
     }
 
     setAdminPin(userPin)
-    fetchGameState()
 
-    // Start polling with longer interval to reduce refresh frequency
-    startPolling()
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-      }
+    // Set initial balance values from game state
+    if (gameState) {
+      setCaptain1Balance(gameState.captain1Balance)
+      setCaptain2Balance(gameState.captain2Balance)
     }
-  }, [])
-
-  const startPolling = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current)
-    }
-
-    // Reduced polling frequency from 1 second to 2 seconds
-    pollingIntervalRef.current = setInterval(() => {
-      fetchGameState(true) // Silent fetch to avoid UI disruption
-    }, 2000)
-  }
-
-  const fetchGameState = async (silent = false) => {
-    try {
-      if (!silent) setIsLoading(true)
-
-      const response = await fetch("/api/game-state")
-      const data = await response.json()
-
-      // Only update state if data has actually changed
-      if (data.lastUpdate !== lastUpdateRef.current) {
-        setGameState(data)
-        lastUpdateRef.current = data.lastUpdate
-
-        // Only update balance inputs if they haven't been manually changed
-        if (!silent) {
-          setCaptain1Balance(data.captain1Balance)
-          setCaptain2Balance(data.captain2Balance)
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching game state:", error)
-    } finally {
-      if (!silent) setIsLoading(false)
-    }
-  }
+  }, [gameState])
 
   const addPlayer = async () => {
     if (!playerName.trim()) {
@@ -129,7 +67,6 @@ export default function AdminPage() {
       if (response.ok) {
         setPlayerName("")
         setPlayerBasePrice(50000)
-        await fetchGameState()
         showSuccessMessage("Player added successfully!")
       } else {
         alert("Error adding player")
@@ -160,7 +97,6 @@ export default function AdminPage() {
         })
 
         if (response.ok) {
-          await fetchGameState()
           showSuccessMessage("Player removed successfully!")
         } else {
           alert("Error removing player")
@@ -191,7 +127,6 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchGameState()
         showSuccessMessage("Balances updated successfully!")
       } else {
         alert("Error setting balances")
@@ -223,7 +158,6 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchGameState()
         showSuccessMessage(`Pre-auction timer started for ${preAuctionMinutes} minutes!`)
       } else {
         const error = await response.json()
@@ -254,7 +188,6 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchGameState()
         showSuccessMessage("Auction started successfully!")
       } else {
         const error = await response.json()
@@ -285,7 +218,6 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchGameState()
         showSuccessMessage("Timer started!")
       } else {
         alert("Error starting timer")
@@ -310,7 +242,6 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchGameState()
         showSuccessMessage("Timer paused!")
       } else {
         alert("Error pausing timer")
@@ -335,7 +266,6 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchGameState()
         showSuccessMessage("Timer resumed!")
       } else {
         alert("Error resuming timer")
@@ -360,7 +290,6 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchGameState()
         showSuccessMessage("Timer stopped!")
       } else {
         alert("Error stopping timer")
@@ -385,7 +314,6 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchGameState()
         showSuccessMessage("Moved to next player!")
       } else {
         alert("Error moving to next player")
@@ -411,7 +339,6 @@ export default function AdminPage() {
         })
 
         if (response.ok) {
-          await fetchGameState()
           showSuccessMessage("Auction ended!")
         } else {
           alert("Error ending auction")
@@ -438,7 +365,6 @@ export default function AdminPage() {
         })
 
         if (response.ok) {
-          await fetchGameState()
           showSuccessMessage("Auction restarted successfully!")
         } else {
           alert("Error restarting auction")
@@ -465,7 +391,6 @@ export default function AdminPage() {
         })
 
         if (response.ok) {
-          await fetchGameState()
           showSuccessMessage("All data cleared successfully!")
         } else {
           alert("Error clearing data")
@@ -480,9 +405,6 @@ export default function AdminPage() {
   }
 
   const logout = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current)
-    }
     sessionStorage.removeItem("userRole")
     sessionStorage.removeItem("userPin")
     window.location.href = "/"
@@ -528,7 +450,9 @@ export default function AdminPage() {
       <div className="admin-header">
         <h1>👑 Admin Control Panel</h1>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <span style={{ color: "#4ecdc4" }}>🟢 Connected</span>
+          <span style={{ color: isConnected ? "#4ecdc4" : "#f39c12" }}>
+            {isConnected ? "🟢 WebSocket Connected" : "🟡 Polling Mode"}
+          </span>
           {isLoading && <span style={{ color: "#f39c12" }}>⏳ Loading...</span>}
           <button onClick={logout} className="btn-secondary">
             Logout

@@ -1,6 +1,5 @@
 "use client"
-
-import { useEffect, useState, useRef } from "react"
+import { useWebSocket } from "@/lib/websocket-client"
 
 interface Player {
   id: number
@@ -11,71 +10,9 @@ interface Player {
   soldPrice?: number
 }
 
-interface GameState {
-  players: Player[]
-  currentPlayerIndex: number
-  currentBid: number
-  highestBidder: string | null
-  captain1Balance: number
-  captain2Balance: number
-  captain1Team: Player[]
-  captain2Team: Player[]
-  timerActive: boolean
-  timerPaused: boolean
-  timeRemaining: number
-  auctionActive: boolean
-  auctionEnded: boolean
-  auctionStarted: boolean
-  preAuctionTimer: number
-  preAuctionActive: boolean
-  lastUpdate: number
-}
-
 export default function SpectatorPage() {
-  const [gameState, setGameState] = useState<GameState | null>(null)
-
-  // Use refs to prevent unnecessary re-renders
-  const lastUpdateRef = useRef<number>(0)
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    fetchGameState()
-
-    // Start polling with longer interval
-    startPolling()
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-      }
-    }
-  }, [])
-
-  const startPolling = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current)
-    }
-
-    // Reduced polling frequency from 1 second to 2 seconds
-    pollingIntervalRef.current = setInterval(() => {
-      fetchGameState(true) // Silent fetch
-    }, 2000)
-  }
-
-  const fetchGameState = async (silent = false) => {
-    try {
-      const response = await fetch("/api/game-state")
-      const data = await response.json()
-
-      // Only update state if data has actually changed
-      if (data.lastUpdate !== lastUpdateRef.current) {
-        setGameState(data)
-        lastUpdateRef.current = data.lastUpdate
-      }
-    } catch (error) {
-      console.error("Error fetching game state:", error)
-    }
-  }
+  // Use WebSocket hook
+  const { gameState, isConnected } = useWebSocket()
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -112,12 +49,17 @@ export default function SpectatorPage() {
           <p>Get ready! The auction will begin automatically when the timer reaches zero.</p>
           <div style={{ marginTop: "2rem", color: "#b0b0b0" }}>
             <p>Players ready: {gameState.players.length}</p>
+            <p style={{ color: isConnected ? "#4ecdc4" : "#f39c12", fontSize: "0.9rem" }}>
+              {isConnected ? "🟢 WebSocket Connected" : "🟡 Polling Mode"}
+            </p>
           </div>
         </div>
       ) : !gameState.auctionActive || gameState.players.length === 0 ? (
         <div className="auction-status">
           <p>Waiting for auction to start...</p>
-          <p style={{ color: "#4ecdc4", fontSize: "0.9rem" }}>🟢 Connected</p>
+          <p style={{ color: isConnected ? "#4ecdc4" : "#f39c12", fontSize: "0.9rem" }}>
+            {isConnected ? "🟢 WebSocket Connected" : "🟡 Polling Mode"}
+          </p>
         </div>
       ) : gameState.auctionEnded ? (
         <div className="teams-display fade-in">
@@ -322,6 +264,20 @@ export default function SpectatorPage() {
               Player {gameState.currentPlayerIndex + 1} of {gameState.players.length}
             </p>
             <p>Remaining: {gameState.players.length - gameState.currentPlayerIndex - 1}</p>
+          </div>
+          <div
+            style={{
+              background: "rgba(255, 255, 255, 0.05)",
+              padding: "1rem",
+              borderRadius: "8px",
+              border: "1px solid #333",
+              textAlign: "center",
+            }}
+          >
+            <h4 style={{ color: isConnected ? "#4ecdc4" : "#f39c12" }}>🌐 Connection</h4>
+            <p style={{ color: isConnected ? "#4ecdc4" : "#f39c12" }}>
+              {isConnected ? "WebSocket Connected" : "Polling Mode"}
+            </p>
           </div>
         </div>
       )}
