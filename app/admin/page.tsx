@@ -6,6 +6,7 @@ interface Player {
   id: number
   name: string
   role: string
+  basePrice: number
   soldTo?: string
   soldPrice?: number
 }
@@ -34,6 +35,7 @@ export default function AdminPage() {
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [playerName, setPlayerName] = useState("")
   const [playerRole, setPlayerRole] = useState("Batsman")
+  const [playerBasePrice, setPlayerBasePrice] = useState(50000)
   const [captain1Balance, setCaptain1Balance] = useState(1000000)
   const [captain2Balance, setCaptain2Balance] = useState(1000000)
   const [preAuctionMinutes, setPreAuctionMinutes] = useState(5)
@@ -74,17 +76,23 @@ export default function AdminPage() {
       return
     }
 
+    if (playerBasePrice < 1000) {
+      alert("Base price must be at least ₹1,000")
+      return
+    }
+
     try {
       const response = await fetch("/api/admin/add-player", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name: playerName, role: playerRole, adminPin }),
+        body: JSON.stringify({ name: playerName, role: playerRole, basePrice: playerBasePrice, adminPin }),
       })
 
       if (response.ok) {
         setPlayerName("")
+        setPlayerBasePrice(50000)
         fetchGameState()
         showSuccessMessage("Player added successfully!")
       } else {
@@ -435,6 +443,68 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Final Teams Display */}
+      {gameState.auctionEnded && (
+        <div className="teams-display fade-in" style={{ marginBottom: "2rem" }}>
+          <h2>🏆 Final Teams</h2>
+          <div className="teams-grid">
+            <div className="team-section">
+              <h3>⚡ Team Lightning</h3>
+              <div className="team-cards-grid">
+                {gameState.captain1Team.map((player) => (
+                  <div key={player.id} className="team-player-card">
+                    <div className="team-player-avatar">🏏</div>
+                    <div className="team-player-name">{player.name}</div>
+                    <div className="team-player-role">{player.role}</div>
+                    <div className="player-base-price">Base: ₹{player.basePrice?.toLocaleString()}</div>
+                    <div className="team-player-price">Sold: ₹{player.soldPrice?.toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="team-summary">
+                <h4>Team Summary</h4>
+                <p>Total Players: {gameState.captain1Team.length}</p>
+                <p>
+                  Total Spent: ₹
+                  {gameState.captain1Team.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}
+                </p>
+                <p>Remaining Balance: ₹{gameState.captain1Balance.toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="team-section">
+              <h3>🔥 Team Thunder</h3>
+              <div className="team-cards-grid">
+                {gameState.captain2Team.map((player) => (
+                  <div key={player.id} className="team-player-card">
+                    <div className="team-player-avatar">🏏</div>
+                    <div className="team-player-name">{player.name}</div>
+                    <div className="team-player-role">{player.role}</div>
+                    <div className="player-base-price">Base: ₹{player.basePrice?.toLocaleString()}</div>
+                    <div className="team-player-price">Sold: ₹{player.soldPrice?.toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="team-summary">
+                <h4>Team Summary</h4>
+                <p>Total Players: {gameState.captain2Team.length}</p>
+                <p>
+                  Total Spent: ₹
+                  {gameState.captain2Team.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}
+                </p>
+                <p>Remaining Balance: ₹{gameState.captain2Balance.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+          <div
+            style={{ marginTop: "2rem", padding: "1rem", background: "rgba(255, 255, 255, 0.05)", borderRadius: "8px" }}
+          >
+            <p style={{ color: "#ff6b6b", fontSize: "1.1rem" }}>
+              🕒 Auction data will be automatically cleared in 25 seconds
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="admin-grid">
         {/* Player Management */}
         <div className="admin-section">
@@ -457,6 +527,16 @@ export default function AdminPage() {
               <option value="All-Rounder">All-Rounder</option>
               <option value="Wicket-Keeper">Wicket-Keeper</option>
             </select>
+            <label>Base Price (₹):</label>
+            <input
+              type="number"
+              min="1000"
+              step="1000"
+              placeholder="Base Price"
+              value={playerBasePrice}
+              onChange={(e) => setPlayerBasePrice(Number(e.target.value))}
+              disabled={gameState.auctionActive || gameState.preAuctionActive}
+            />
             <button
               onClick={addPlayer}
               className="btn-primary"
@@ -486,6 +566,8 @@ export default function AdminPage() {
                   {index === gameState.currentPlayerIndex && gameState.auctionActive && (
                     <span style={{ color: "#00f5ff", fontWeight: "bold", marginLeft: "10px" }}>🎯 CURRENT</span>
                   )}
+                  <br />
+                  <small style={{ color: "#f39c12" }}>Base Price: ₹{player.basePrice?.toLocaleString()}</small>
                   <br />
                   <small>
                     {player.soldTo
@@ -637,6 +719,7 @@ export default function AdminPage() {
             ) : gameState.auctionActive && gameState.players.length > 0 ? (
               <>
                 <h4>🎯 Current Player: {gameState.players[gameState.currentPlayerIndex]?.name || "None"}</h4>
+                <p>Base Price: ₹{gameState.players[gameState.currentPlayerIndex]?.basePrice?.toLocaleString()}</p>
                 <p>Current Bid: ₹{gameState.currentBid.toLocaleString()}</p>
                 <p>
                   Highest Bidder:{" "}
@@ -670,6 +753,9 @@ export default function AdminPage() {
             <div className="player-image">🏏</div>
             <div className="player-name">{gameState.players[gameState.currentPlayerIndex]?.name}</div>
             <div className="player-role">{gameState.players[gameState.currentPlayerIndex]?.role}</div>
+            <div className="player-base-price">
+              Base Price: ₹{gameState.players[gameState.currentPlayerIndex]?.basePrice?.toLocaleString()}
+            </div>
             <div
               style={{
                 marginTop: "1rem",

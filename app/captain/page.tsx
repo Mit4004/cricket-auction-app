@@ -6,6 +6,7 @@ interface Player {
   id: number
   name: string
   role: string
+  basePrice: number
   soldTo?: string
   soldPrice?: number
 }
@@ -75,14 +76,16 @@ export default function CaptainPage() {
     if (!gameState) return
 
     const currentBalance = userRole === "captain1" ? gameState.captain1Balance : gameState.captain2Balance
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    const minimumBid = Math.max(gameState.currentBid + 1, currentPlayer?.basePrice || 0)
 
     if (amount > currentBalance) {
       alert("Insufficient balance!")
       return
     }
 
-    if (amount <= gameState.currentBid) {
-      alert("Bid must be higher than current bid")
+    if (amount < minimumBid) {
+      alert(`Bid must be at least ₹${minimumBid.toLocaleString()}`)
       return
     }
 
@@ -122,7 +125,9 @@ export default function CaptainPage() {
 
   const quickBid = (amount: number) => {
     if (!gameState) return
-    const newBid = gameState.currentBid + amount
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
+    const minimumBid = Math.max(gameState.currentBid + 1, currentPlayer?.basePrice || 0)
+    const newBid = Math.max(gameState.currentBid + amount, minimumBid)
     setBidAmount(newBid.toString())
   }
 
@@ -199,24 +204,18 @@ export default function CaptainPage() {
       ) : gameState.auctionEnded ? (
         <div className="team-display fade-in">
           <h3>🏆 Your Final Team</h3>
-          <div className="team-list">
+          <div className="team-cards-grid">
             {myTeam.map((player) => (
-              <div key={player.id} className="team-player">
+              <div key={player.id} className="team-player-card">
+                <div className="team-player-avatar">🏏</div>
                 <div className="team-player-name">{player.name}</div>
                 <div className="team-player-role">{player.role}</div>
-                <div className="team-player-price">₹{player.soldPrice?.toLocaleString()}</div>
+                <div className="player-base-price">Base: ₹{player.basePrice?.toLocaleString()}</div>
+                <div className="team-player-price">Sold: ₹{player.soldPrice?.toLocaleString()}</div>
               </div>
             ))}
           </div>
-          <div
-            style={{
-              marginTop: "2rem",
-              padding: "1rem",
-              background: "rgba(78, 205, 196, 0.1)",
-              borderRadius: "8px",
-              textAlign: "center",
-            }}
-          >
+          <div className="team-summary">
             <h4>Team Summary</h4>
             <p>Total Players: {myTeam.length}</p>
             <p>Total Spent: ₹{myTeam.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}</p>
@@ -229,6 +228,7 @@ export default function CaptainPage() {
             <div className="player-image">🏏</div>
             <div className="player-name">{currentPlayer?.name}</div>
             <div className="player-role">{currentPlayer?.role}</div>
+            <div className="player-base-price">Base Price: ₹{currentPlayer?.basePrice?.toLocaleString()}</div>
             <div
               style={{
                 marginTop: "1rem",
@@ -255,7 +255,7 @@ export default function CaptainPage() {
               >
                 {gameState.highestBidder
                   ? `Highest bidder: ${gameState.highestBidder === "captain1" ? "Captain 1 ⚡" : "Captain 2 🔥"}`
-                  : "No bids yet"}
+                  : `Starting at base price: ₹${currentPlayer?.basePrice?.toLocaleString()}`}
                 {gameState.highestBidder === userRole && (
                   <span style={{ color: "#4ecdc4", display: "block" }}>🏆 YOU'RE WINNING!</span>
                 )}
@@ -284,8 +284,8 @@ export default function CaptainPage() {
               <input
                 type="number"
                 className="bid-amount-input"
-                placeholder="Enter bid amount"
-                min="0"
+                placeholder={`Min bid: ₹${Math.max(gameState.currentBid + 1, currentPlayer?.basePrice || 0).toLocaleString()}`}
+                min={Math.max(gameState.currentBid + 1, currentPlayer?.basePrice || 0)}
                 value={bidAmount}
                 onChange={(e) => setBidAmount(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && placeBid()}

@@ -406,6 +406,93 @@ body {
   transform: scale(1.1);
 }
 
+.player-price {
+  font-size: 1.1rem;
+  color: #4ecdc4;
+  font-weight: bold;
+  margin-top: 0.5rem;
+}
+
+.player-base-price {
+  font-size: 0.9rem;
+  color: #f39c12;
+  margin-top: 0.5rem;
+}
+
+/* Team Player Cards */
+.team-player-card {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 2px solid #4ecdc4;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.team-player-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(78, 205, 196, 0.3);
+  border-color: #00f5ff;
+}
+
+.team-player-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(78, 205, 196, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.team-player-card:hover::before {
+  left: 100%;
+}
+
+.team-player-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  background: linear-gradient(45deg, #4ecdc4, #44a08d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  border: 2px solid #ffffff;
+  transition: all 0.3s ease;
+}
+
+.team-player-card:hover .team-player-avatar {
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+}
+
+.team-player-name {
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.team-player-role {
+  color: #00f5ff;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.team-player-price {
+  color: #4ecdc4;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
 /* Current Player Special Animation */
 .current-player-card {
   animation: currentPlayerPulse 2s ease-in-out infinite;
@@ -899,34 +986,29 @@ body {
   font-size: 1.5rem;
 }
 
-.team-list {
-  display: flex;
-  flex-direction: column;
+.team-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
+  margin-bottom: 1rem;
 }
 
-.team-player {
-  background: rgba(255, 255, 255, 0.1);
+.team-summary {
+  background: rgba(78, 205, 196, 0.1);
   padding: 1rem;
   border-radius: 8px;
-  text-align: left;
+  border: 2px solid #4ecdc4;
+  margin-top: 1rem;
 }
 
-.team-player-name {
-  font-weight: bold;
-  color: #ffffff;
-  margin-bottom: 0.5rem;
-}
-
-.team-player-role {
-  color: #00f5ff;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
-}
-
-.team-player-price {
+.team-summary h4 {
   color: #4ecdc4;
-  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.team-summary p {
+  margin: 0.25rem 0;
+  color: #ffffff;
 }
 
 /* Responsive Design */
@@ -1008,6 +1090,10 @@ body {
   }
 
   .teams-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-cards-grid {
     grid-template-columns: 1fr;
   }
 

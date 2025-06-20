@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { name, role, adminPin } = body
+    const { name, role, basePrice, adminPin } = body
 
     console.log("Admin PIN check:", { provided: adminPin })
 
@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const gameState = gameStateManager.addPlayer({ name, role })
-    console.log("Player added successfully:", { name, role })
+    const gameState = gameStateManager.addPlayer({ name, role, basePrice })
+    console.log("Player added successfully:", { name, role, basePrice })
     console.log("Current players:", gameState.players)
 
     return NextResponse.json(gameState)

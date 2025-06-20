@@ -6,6 +6,7 @@ interface Player {
   id: number
   name: string
   role: string
+  basePrice: number
   soldTo?: string
   soldPrice?: number
 }
@@ -99,52 +100,48 @@ export default function SpectatorPage() {
           <div className="teams-grid">
             <div className="team-section">
               <h3>⚡ Team Lightning</h3>
-              <div className="team-list">
+              <div className="team-cards-grid">
                 {gameState.captain1Team.map((player) => (
-                  <div key={player.id} className="team-player">
+                  <div key={player.id} className="team-player-card">
+                    <div className="team-player-avatar">🏏</div>
                     <div className="team-player-name">{player.name}</div>
                     <div className="team-player-role">{player.role}</div>
-                    <div className="team-player-price">₹{player.soldPrice?.toLocaleString()}</div>
+                    <div className="player-base-price">Base: ₹{player.basePrice?.toLocaleString()}</div>
+                    <div className="team-player-price">Sold: ₹{player.soldPrice?.toLocaleString()}</div>
                   </div>
                 ))}
               </div>
-              <div
-                style={{
-                  marginTop: "1rem",
-                  padding: "1rem",
-                  background: "rgba(78, 205, 196, 0.1)",
-                  borderRadius: "8px",
-                }}
-              >
-                <strong>
+              <div className="team-summary">
+                <h4>Team Summary</h4>
+                <p>Total Players: {gameState.captain1Team.length}</p>
+                <p>
                   Total Spent: ₹
                   {gameState.captain1Team.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}
-                </strong>
+                </p>
+                <p>Remaining Balance: ₹{gameState.captain1Balance.toLocaleString()}</p>
               </div>
             </div>
             <div className="team-section">
               <h3>🔥 Team Thunder</h3>
-              <div className="team-list">
+              <div className="team-cards-grid">
                 {gameState.captain2Team.map((player) => (
-                  <div key={player.id} className="team-player">
+                  <div key={player.id} className="team-player-card">
+                    <div className="team-player-avatar">🏏</div>
                     <div className="team-player-name">{player.name}</div>
                     <div className="team-player-role">{player.role}</div>
-                    <div className="team-player-price">₹{player.soldPrice?.toLocaleString()}</div>
+                    <div className="player-base-price">Base: ₹{player.basePrice?.toLocaleString()}</div>
+                    <div className="team-player-price">Sold: ₹{player.soldPrice?.toLocaleString()}</div>
                   </div>
                 ))}
               </div>
-              <div
-                style={{
-                  marginTop: "1rem",
-                  padding: "1rem",
-                  background: "rgba(255, 107, 107, 0.1)",
-                  borderRadius: "8px",
-                }}
-              >
-                <strong>
+              <div className="team-summary">
+                <h4>Team Summary</h4>
+                <p>Total Players: {gameState.captain2Team.length}</p>
+                <p>
                   Total Spent: ₹
                   {gameState.captain2Team.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}
-                </strong>
+                </p>
+                <p>Remaining Balance: ₹{gameState.captain2Balance.toLocaleString()}</p>
               </div>
             </div>
           </div>
@@ -163,6 +160,7 @@ export default function SpectatorPage() {
               <div className="player-image">🏏</div>
               <div className="player-name">{currentPlayer?.name}</div>
               <div className="player-role">{currentPlayer?.role}</div>
+              <div className="player-base-price">Base Price: ₹{currentPlayer?.basePrice?.toLocaleString()}</div>
               <div
                 style={{
                   marginTop: "1rem",
@@ -184,7 +182,7 @@ export default function SpectatorPage() {
               <div className="bidder-info">
                 {gameState.highestBidder
                   ? `Leading: ${gameState.highestBidder === "captain1" ? "Team Lightning ⚡" : "Team Thunder 🔥"}`
-                  : "No bids yet"}
+                  : `Starting at base price`}
               </div>
             </div>
 
