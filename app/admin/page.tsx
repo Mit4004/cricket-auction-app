@@ -381,6 +381,30 @@ export default function AdminPage() {
     }
   }
 
+  const clearData = async () => {
+    if (confirm("Are you sure you want to clear all auction data? This action cannot be undone.")) {
+      try {
+        const response = await fetch("/api/admin/clear-data", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ adminPin }),
+        })
+
+        if (response.ok) {
+          fetchGameState()
+          showSuccessMessage("All data cleared successfully!")
+        } else {
+          alert("Error clearing data")
+        }
+      } catch (error) {
+        console.error("Error clearing data:", error)
+        alert("Error clearing data")
+      }
+    }
+  }
+
   const logout = () => {
     sessionStorage.removeItem("userRole")
     sessionStorage.removeItem("userPin")
@@ -496,10 +520,19 @@ export default function AdminPage() {
             </div>
           </div>
           <div
-            style={{ marginTop: "2rem", padding: "1rem", background: "rgba(255, 255, 255, 0.05)", borderRadius: "8px" }}
+            style={{
+              marginTop: "2rem",
+              padding: "1rem",
+              background: "rgba(255, 255, 255, 0.05)",
+              borderRadius: "8px",
+              textAlign: "center",
+            }}
           >
-            <p style={{ color: "#ff6b6b", fontSize: "1.1rem" }}>
-              🕒 Auction data will be automatically cleared in 25 seconds
+            <button onClick={clearData} className="btn-danger" style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}>
+              🗑️ Clear All Data
+            </button>
+            <p style={{ color: "#b0b0b0", fontSize: "0.9rem", marginTop: "1rem" }}>
+              This will permanently delete all auction data and reset the system
             </p>
           </div>
         </div>
@@ -712,9 +745,7 @@ export default function AdminPage() {
                 <h4>🏁 Auction Ended</h4>
                 <p>Captain 1 Team: {gameState.captain1Team.length} players</p>
                 <p>Captain 2 Team: {gameState.captain2Team.length} players</p>
-                <p style={{ color: "#ff6b6b", fontSize: "0.9rem" }}>
-                  ⏰ Data will be cleared automatically in 25 seconds
-                </p>
+                <p style={{ color: "#4ecdc4", fontSize: "0.9rem" }}>✅ Auction completed successfully</p>
               </>
             ) : gameState.auctionActive && gameState.players.length > 0 ? (
               <>

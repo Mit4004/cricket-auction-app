@@ -221,6 +221,19 @@ export default function CaptainPage() {
             <p>Total Spent: ₹{myTeam.reduce((sum, player) => sum + (player.soldPrice || 0), 0).toLocaleString()}</p>
             <p>Remaining Balance: ₹{currentBalance.toLocaleString()}</p>
           </div>
+          <div
+            style={{
+              marginTop: "2rem",
+              padding: "1rem",
+              background: "rgba(78, 205, 196, 0.1)",
+              borderRadius: "8px",
+              textAlign: "center",
+              border: "2px solid #4ecdc4",
+            }}
+          >
+            <h4 style={{ color: "#4ecdc4" }}>🏆 Congratulations!</h4>
+            <p>Your team has been finalized. Great job in the auction!</p>
+          </div>
         </div>
       ) : (
         <div className="player-display">

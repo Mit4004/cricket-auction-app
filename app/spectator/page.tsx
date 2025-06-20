@@ -146,11 +146,16 @@ export default function SpectatorPage() {
             </div>
           </div>
           <div
-            style={{ marginTop: "2rem", padding: "1rem", background: "rgba(255, 255, 255, 0.05)", borderRadius: "8px" }}
+            style={{
+              marginTop: "2rem",
+              padding: "1rem",
+              background: "rgba(255, 255, 255, 0.05)",
+              borderRadius: "8px",
+              textAlign: "center",
+            }}
           >
-            <p style={{ color: "#ff6b6b", fontSize: "1.1rem" }}>
-              🕒 Auction data will be automatically cleared in 25 seconds
-            </p>
+            <p style={{ color: "#4ecdc4", fontSize: "1.1rem" }}>🏆 Auction Completed Successfully!</p>
+            <p style={{ color: "#b0b0b0", fontSize: "0.9rem" }}>Thank you for watching the live auction</p>
           </div>
         </div>
       ) : (
